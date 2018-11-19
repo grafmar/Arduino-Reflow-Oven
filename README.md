@@ -5,13 +5,11 @@ through an opto-SSR (optocoupled solid state relay).
 
 ## Requirements
 * [Arduino IDE](https://www.arduino.cc/en/main/software)
-* [ESP8266 board support](https://github.com/arduino/Arduino/wiki/Unofficial-list-of-3rd-party-boards-support-urls): http://arduino.esp8266.com/stable/package_esp8266com_index.json
-* [FirebaseArduino library](https://github.com/FirebaseExtended/firebase-arduino)
-* ArduinoJson library Version 5.13.1 (higher versions result in problems with the active FirebaseArduino library)
-* Adafruit_NeoPixel library
 * Adafruit_GFX library
-* Adafruit_SSD1306 library
-* WiFiManager library
+* SWTFT Library
+* TouchScreen Library
+* MAX6675 Library
+* TimerOne Library
 * [Visual Studio](https://visualstudio.microsoft.com/) to have a comfortable IDE
 * [Visual Micro](https://www.visualmicro.com/) to integrate Arduino IDE in Visual Studio
 
