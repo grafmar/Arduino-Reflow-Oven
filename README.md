@@ -40,7 +40,7 @@ The housing for the Arduino Uno and the TFT-Touch-Screen is printed using a 3D-P
 piece of aluminium to the oven.
 
 ## Author
-[Marco Graf](https://github.com/grafmar)
+[Marco Graf](https://github.com/grafmar)  
 Roman Scheuss
 
 ## Credits / Attribution
