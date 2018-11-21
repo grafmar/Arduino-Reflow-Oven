@@ -3,19 +3,19 @@ This device controls a pizza oven to produce temperature ramps to use it as a [r
 several simple modifications are done. The builtin control is disconnected and the heater is controlled
 through an opto-SSR (optocoupled solid state relay).
 
-## What is a reflow oven used to
-To populate PCBs width components you could either use a soldering iron and solder each component by hand
-or you can use a reflow oven. To use a reflow oven you put soldering paste onto the pads and put your
-components on top. The you bake it in an oven - a reflow oven. The special functionality of a reflow oven
-is that you can produce temperature profiles. This is to solder the components as gently as possible but
-also guarantee good solder joints.
-
 This reflow oven can therefore be used to produce a variety of temperature profiles - not only for reflow
 soldering.
 
 | The reflow oven | The Inside of the reflow oven |
 | :--- | :--- |
 | <img src="Documentation/ReflowOven.jpg" alt="Reflow Oven" width="100%"/>  | <img src="Documentation/ReflowOven_Inside.jpg" alt="Inside the Reflow Oven" width="100%"/> |
+
+## What is a reflow oven used to
+To populate PCBs width components you could either use a soldering iron and solder each component by hand
+or you can use a reflow oven. To use a reflow oven you put soldering paste onto the pads and put your
+components on top. The you bake it in an oven - a reflow oven. The special functionality of a reflow oven
+is that you can produce temperature profiles. This is to solder the components as gently as possible but
+also guarantee good solder joints.
 
 ## Requirements
 * [Arduino IDE](https://www.arduino.cc/en/main/software)
