@@ -13,14 +13,14 @@ also guarantee good solder joints.
 This reflow oven can therefore be used to produce a variety of temperature profiles - not only for reflow
 soldering.
 
-### The reflow oven
+
+| The reflow oven | The Inside of the reflow oven |
+| :--- | :--- |
+| abc  | def |
+
 <img src="Documentation/ReflowOven.jpg" alt="ReflowOven" width="50%"/>
 
-### The Inside of the reflow oven
-<img src="Documentation/ReflowOven_Inside.jpg" alt="ReflowOven" width="25%"/>
-
-### The Control
-<img src="Documentation/ReflowOven_Control.jpg" alt="ReflowOven" width="25%"/>
+<img src="Documentation/ReflowOven_Inside.jpg" alt="ReflowOven" width="50%"/>
 
 ## Requirements
 * [Arduino IDE](https://www.arduino.cc/en/main/software)
