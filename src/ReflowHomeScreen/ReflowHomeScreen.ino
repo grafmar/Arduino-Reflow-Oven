@@ -2,7 +2,6 @@
 #include "SWTFT.h" // Hardware-specific library
 #include <TouchScreen.h>
 //#include <EEPROM.h>
-#include <TimerOne.h>
 #include <max6675.h>
 
 // touchscreen definitons
@@ -67,9 +66,11 @@ buttons actualInputSelection = buttonTemp;
 int selectedTempPointValue = 0;
 char selectedTempPoint = 0;
 
+uint32_t lastMeasurementMS;
+boolean timeToMeasure = false;
+
 boolean isStarted = false;
 boolean isFinish = false;
-boolean timeToMeasure = false;
 boolean heater = false;
 
 int i, j;
@@ -84,7 +85,15 @@ struct TempPoint {
   int16_t t;
   int16_t T;
 };
-TempPoint SollTempPoints[6];
+// define default temperature
+TempPoint SollTempPoints[6] = {
+  {0,25},
+  {30,100},
+  {120,150},
+  {150,183},
+  {210,235},
+  {240,183}
+};
 
 //--------------------------------------------------------------------------------------------------------------------------
 
@@ -92,29 +101,6 @@ void setup(void) {
   // initialize serial communication
   Serial.begin(115200);
   Serial.println(F("Startup... Ready"));
-
-  // initialize the timer 1
-  Timer1.initialize(1000000); // set the timer to 1sec
-  Timer1.attachInterrupt(timerIsr); // attach the service routine here
-
-  // define default temperature
-  SollTempPoints[0].t = 0;
-  SollTempPoints[0].T = 25;
-
-  SollTempPoints[1].t = 30;
-  SollTempPoints[1].T = 100;
-
-  SollTempPoints[2].t = 120;
-  SollTempPoints[2].T = 150;
-
-  SollTempPoints[3].t = 150;
-  SollTempPoints[3].T = 183;
-
-  SollTempPoints[4].t = 210;
-  SollTempPoints[4].T = 235;
-
-  SollTempPoints[5].t = 240;
-  SollTempPoints[5].T = 183;
 
   // clear istTemp array
   for (i = 0; i < 301; i++) {
@@ -140,10 +126,16 @@ void setup(void) {
   // EEPROM.write(2 * i, SollTempPoints[i].t);
   // EEPROM.write(2 * i + 1, SollTempPoints[i].T);
   // }
+
+  lastMeasurementMS = millis();
 }
 
 //--------------------------------------------------------------------------------------------------------
 void loop(void) {
+  if ((millis() - lastMeasurementMS) >= 1000) {
+    lastMeasurementMS += 1000;
+    timeToMeasure = true;
+  }
 
   // get touched point
   digitalWrite(13, HIGH);
@@ -232,12 +224,12 @@ void loop(void) {
     //to block buttonSollTemp and buttonSettings during reflow process
     if (isStarted && (touchedButton == buttonSollTemp || touchedButton == buttonSettings)) {
       touchedButton = noButton;
-      Serial.println("Locked -> noAction");
+      Serial.println(F("Locked -> noAction"));
     }
     //to block buttonSollTemp and buttonSettings before press reset
     if (isFinish && (touchedButton == buttonSollTemp || touchedButton == buttonSettings)) {
       touchedButton = noButton;
-      Serial.println("Locked -> noAction");
+      Serial.println(F("Locked -> noAction"));
     }
 
     if (prevButton != touchedButton) {
@@ -603,7 +595,7 @@ void drawRemainingTime(uint16_t remainingTime) {
   if (remainingTime > 0) {
     tft.setCursor(100, 165);
     tft.setTextColor(BLACK);  tft.setTextSize(2);
-    tft.print("preHeat: ");
+    tft.print(F("preHeat: "));
     tft.print(remainingTime);
   }
 }
@@ -626,7 +618,7 @@ void drawHomeScreen(void) {
 
   tft.setCursor(5, 213);
   tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println("SollTemp");
+  tft.println(F("SollTemp"));
 
   tft.setCursor(128, 213);
   tft.setTextColor(BLACK);  tft.setTextSize(2);
@@ -635,30 +627,30 @@ void drawHomeScreen(void) {
   Serial.println(isFinish);
 
   if (isStarted == true && isFinish == false) {   //during reflow process
-    tft.println("Stop");
+    tft.println(F("Stop"));
   }
   else if (isStarted == false && isFinish == true) {   //end of reflow process
-    tft.println("Reset");
+    tft.println(F("Reset"));
   }
   else {
-    tft.println("Start");
+    tft.println(F("Start"));
   }
 
   tft.setCursor(218, 213);
   tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println("Settings");
+  tft.println(F("Settings"));
 
   tft.drawLine(270, 15, 280, 15, BLUE);     // Label soll
   tft.drawLine(270, 16, 280, 16, BLUE);
   tft.setCursor(282, 13);
   tft.setTextColor(BLUE);  tft.setTextSize(1);
-  tft.println("Soll");
+  tft.println(F("Soll"));
 
   tft.drawLine(270, 25, 280, 25, RED);     // Label ist
   tft.drawLine(270, 26, 280, 26, RED);
   tft.setCursor(282, 23);
   tft.setTextColor(RED);  tft.setTextSize(1);
-  tft.println("Ist");
+  tft.println(F("Ist"));
 
   drawChartAxis();
   drawSollLine(BLUE, false);
@@ -740,15 +732,15 @@ void drawTempInputScreen(void) {
 
   tft.setCursor(257, 104);
   tft.setTextColor(BLACK);  tft.setTextSize(3);
-  tft.println("Del");
+  tft.println(F("Del"));
 
   tft.setCursor(273, 154);
   tft.setTextColor(BLACK);  tft.setTextSize(3);
-  tft.println("0");
+  tft.println(F("0"));
 
   tft.setCursor(264, 204);
   tft.setTextColor(BLACK);  tft.setTextSize(3);
-  tft.println("OK");
+  tft.println(F("OK"));
 
   if (actualInputSelection == buttonTemp) {
     tft.fillRect(0, 0, 80, 45, GREEN);
@@ -761,12 +753,11 @@ void drawTempInputScreen(void) {
 
   tft.setCursor(5, 15);
   tft.setTextColor(BLACK);  tft.setTextSize(3);
-  tft.println("Temp");
+  tft.println(F("Temp"));
 
   tft.setCursor(5, 60);
   tft.setTextColor(BLACK);  tft.setTextSize(3);
-  tft.println("Time");
-
+  tft.println(F("Time"));
 
   drawTempPointValueScreen(selectedTempPointValue);
 
@@ -795,23 +786,23 @@ void drawSollTempScreen(void) {
 
   tft.setCursor(70, 213);
   tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println("P1");
+  tft.println(F("P1"));
 
   tft.setCursor(123, 213);
   tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println("P2");
+  tft.println(F("P2"));
 
   tft.setCursor(177, 213);
   tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println("P3");
+  tft.println(F("P3"));
 
   tft.setCursor(230, 213);
   tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println("P4");
+  tft.println(F("P4"));
 
   tft.setCursor(284, 213);
   tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println("P5");
+  tft.println(F("P5"));
 
   drawChartAxis();
   drawSollLine(BLUE, true);
@@ -853,7 +844,7 @@ void drawSollLine(uint16_t color, boolean drawIndicators) {
   if (drawIndicators) {
     tft.setCursor(x1 - 10, y1 - 20);
     tft.setTextColor(BLACK);  tft.setTextSize(2);
-    tft.println("P1");
+    tft.println(F("P1"));
   }
 
   x1 = int16_t(SollTempPoints[2].t * 25 / 30.0 + xOffsetChart);
@@ -865,7 +856,7 @@ void drawSollLine(uint16_t color, boolean drawIndicators) {
   if (drawIndicators) {
     tft.setCursor(x1 - 10, y1 - 20);
     tft.setTextColor(BLACK);  tft.setTextSize(2);
-    tft.println("P2");
+    tft.println(F("P2"));
   }
 
   x1 = int16_t(SollTempPoints[3].t * 25 / 30.0 + xOffsetChart);
@@ -877,7 +868,7 @@ void drawSollLine(uint16_t color, boolean drawIndicators) {
   if (drawIndicators) {
     tft.setCursor(x1 - 10, y1 - 20);
     tft.setTextColor(BLACK);  tft.setTextSize(2);
-    tft.println("P3");
+    tft.println(F("P3"));
   }
 
   x1 = int16_t(SollTempPoints[4].t * 25 / 30.0 + xOffsetChart);
@@ -889,10 +880,10 @@ void drawSollLine(uint16_t color, boolean drawIndicators) {
   if (drawIndicators) {
     tft.setCursor(x1 - 10, y1 - 20);
     tft.setTextColor(BLACK);  tft.setTextSize(2);
-    tft.println("P4");
+    tft.println(F("P4"));
     tft.setCursor(x2 - 10, y2 - 20);
     tft.setTextColor(BLACK);  tft.setTextSize(2);
-    tft.println("P5");
+    tft.println(F("P5"));
   }
 }
 
@@ -910,36 +901,31 @@ void calcSollLine(void) {
 
   //section one (point0 to point1)
   m = (float(SollTempPoints[1].T - SollTempPoints[0].T)) / (SollTempPoints[1].t - SollTempPoints[0].t);
-  for (int i = 0; i <= SollTempPoints[1].t; i++)
-  {
+  for (int i = 0; i <= SollTempPoints[1].t; i++) {
     sollTempLine[i] = m * i + SollTempPoints[1].t;
   }
 
   //section two (point1 to point2)
   m = (float(SollTempPoints[2].T - SollTempPoints[1].T)) / (SollTempPoints[2].t - SollTempPoints[1].t);
-  for (int i = (SollTempPoints[1].t + 1); i <= SollTempPoints[2].t; i++)
-  {
+  for (int i = (SollTempPoints[1].t + 1); i <= SollTempPoints[2].t; i++) {
     sollTempLine[i] = m * (i - SollTempPoints[1].t) + SollTempPoints[1].T;
   }
 
   //section three (point2 to point3)
   m = (float(SollTempPoints[3].T - SollTempPoints[2].T)) / (SollTempPoints[3].t - SollTempPoints[2].t);
-  for (int i = (SollTempPoints[2].t + 1); i <= SollTempPoints[3].t; i++)
-  {
+  for (int i = (SollTempPoints[2].t + 1); i <= SollTempPoints[3].t; i++) {
     sollTempLine[i] = m * (i - SollTempPoints[2].t) + SollTempPoints[2].T;
   }
 
   ///section four (point3 to point4)
   m = (float(SollTempPoints[4].T - SollTempPoints[3].T)) / (SollTempPoints[4].t - SollTempPoints[3].t);
-  for (int i = (SollTempPoints[3].t + 1); i <= SollTempPoints[4].t; i++)
-  {
+  for (int i = (SollTempPoints[3].t + 1); i <= SollTempPoints[4].t; i++) {
     sollTempLine[i] = m * (i - SollTempPoints[3].t) + SollTempPoints[3].T;
   }
 
   ///section five (point4 to point5)
   m = (float(SollTempPoints[5].T - SollTempPoints[4].T)) / (SollTempPoints[5].t - SollTempPoints[4].t);
-  for (int i = (SollTempPoints[4].t + 1); i <= SollTempPoints[5].t; i++)
-  {
+  for (int i = (SollTempPoints[4].t + 1); i <= SollTempPoints[5].t; i++) {
     sollTempLine[i] = m * (i - SollTempPoints[4].t) + SollTempPoints[4].T;
   }
 }
@@ -957,14 +943,14 @@ void drawChartAxis(void) {
   tft.drawLine(25, 20, 27, 22, BLACK);       // Y arrow
   tft.setCursor(18, 10);
   tft.setTextColor(BLACK);  tft.setTextSize(1);
-  tft.println("T[C]");
+  tft.println(F("T[C]"));
 
   tft.drawLine(23, 186, 300, 186, BLACK);     // horizontal axis
   tft.drawLine(298, 184, 300, 186, BLACK);     // X arrow
   tft.drawLine(298, 188, 300, 186, BLACK);     // X arrow
   tft.setCursor(290, 175);
   tft.setTextColor(BLACK);  tft.setTextSize(1);
-  tft.println("t[s]");
+  tft.println(F("t[s]"));
 
   // divisionsmark and text X-axis
   int xDivisionMark[xCountDivisionMark] = {25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275};
@@ -996,16 +982,4 @@ void drawChartAxis(void) {
   }
 }
 
-/* This function the interrup service routine for repetitive controlling loop
-
-   Input:
-    - no inputs
-
-    Return:
-    - no return
-*/
-void timerIsr()
-{
-  timeToMeasure = true;
-}
 

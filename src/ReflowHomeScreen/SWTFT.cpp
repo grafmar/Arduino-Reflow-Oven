@@ -62,9 +62,6 @@ SWTFT::SWTFT() :  Adafruit_GFX(TFTWIDTH, TFTHEIGHT) {
 
 
 void SWTFT::init(void) {
-
-
-
   setWriteDir(); // Set up LCD data port(s) for WRITE operations
 
   rotation  = 0;
@@ -167,8 +164,6 @@ static const uint16_t ST7781_regValues[] PROGMEM = {
 //-------DISPLAY ON------//    
 0x0007,0x0133,   
 };
-
-
 
 void SWTFT::begin(uint16_t id) {
   uint8_t i = 0;
