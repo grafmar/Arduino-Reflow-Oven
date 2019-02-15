@@ -1,33 +1,13 @@
+#include "ReflowHomeScreen.h"
 #include <Adafruit_GFX.h>    // Core graphics library
-#include "SWTFT.h" // Hardware-specific library
 #include <TouchScreen.h>
-//#include <EEPROM.h>
+#include <EEPROM.h>
 #include <max6675.h>
 
-// touchscreen definitons
-#define YP A1  // must be an analog pin, use "An" notation!
-#define XM A2  // must be an analog pin, use "An" notation!
-#define YM 7   // can be a digital pin
-#define XP 6   // can be a digital pin
 
-#define TS_MINX 150
-#define TS_MINY 120
-#define TS_MAXX 920
-#define TS_MAXY 940
 
-#define MINPRESSURE 10
-#define MAXPRESSURE 1000
 
-// display definitons
-// Assign human-readable names to some common 16-bit color values:
-#define BLACK   0x0000
-#define BLUE    0x001F
-#define RED     0xF800
-#define GREEN   0x07E0
-#define CYAN    0x07FF
-#define MAGENTA 0xF81F
-#define YELLOW  0xFFE0
-#define WHITE   0xFFFF
+
 
 #define xCountDivisionMark 11
 #define xCountDivisionText 6
@@ -37,13 +17,7 @@
 #define xOffsetChart 25
 #define yOffsetChart 186
 
-// thermocouple definitons
-#define thermoDO 12
-#define thermoCS 11
-#define thermoCLK 10
 
-// define heater pin
-#define heaterPin 19
 
 // generate objects
 MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
@@ -52,7 +26,13 @@ MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
 // between X+ and X- Use any multimeter to read it
 // For the one we're using, its 300 ohms across the X plate
 TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
-SWTFT tft; //touchscreen
+
+// define the tft-object with the right library
+#ifdef USE_ST7781
+SWTFT tft;
+#elif defined(USE_SPFD5408)
+TftSpfd5408 tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
+#endif // USE_ST7781
 
 // define enumerations (screens and buttons)
 enum screens {homeScreen, sollTempScreen, tempInputScreen, settingsScreen, noChange};
@@ -110,7 +90,11 @@ void setup(void) {
   // reset and start display
   tft.reset();
   uint16_t identifier = tft.readID();
+  Serial.print(F("Identifier: "));
+  Serial.println(identifier,HEX);
+  identifier = 0x9341;
   tft.begin(identifier);
+  tft.setRotation(ROTATION);
 
   // initialize heater pin
   pinMode(heaterPin, OUTPUT);
@@ -218,6 +202,10 @@ void loop(void) {
 
   // limit the pressure force
   if (point.z > MINPRESSURE && point.z < MAXPRESSURE) {
+    Serial.print(F("Touch: "));
+    Serial.print(point.x,DEC);
+    Serial.print(F(", "));
+    Serial.println(point.y,DEC);
 
     touchedButton = getTouchedButton(actualScreen, point.x, point.y);
 
@@ -611,14 +599,13 @@ void drawRemainingTime(uint16_t remainingTime) {
 */
 void drawHomeScreen(void) {
   tft.fillScreen(WHITE);
-  tft.setRotation(1);
   tft.drawLine(0, 200, tft.width() - 1, 200, BLACK);
   tft.drawLine(106, 201, 106, tft.height() - 1, BLACK);
   tft.drawLine(213, 201, 213, tft.height() - 1, BLACK);
 
   tft.setCursor(5, 213);
   tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println(F("SollTemp"));
+  tft.println(F("Settings"));
 
   tft.setCursor(128, 213);
   tft.setTextColor(BLACK);  tft.setTextSize(2);
@@ -636,9 +623,9 @@ void drawHomeScreen(void) {
     tft.println(F("Start"));
   }
 
-  tft.setCursor(218, 213);
+  tft.setCursor(238, 213);
   tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println(F("Settings"));
+  tft.println(F("About"));
 
   tft.drawLine(270, 15, 280, 15, BLUE);     // Label soll
   tft.drawLine(270, 16, 280, 16, BLUE);
@@ -667,24 +654,26 @@ void drawHomeScreen(void) {
 */
 void drawSettingsScreen(void) {
   tft.fillScreen(WHITE);
-  tft.setRotation(1);
 
   tft.drawLine(0, 200, 54, 200, BLACK);
   tft.drawLine(54, 201, 54, tft.height() - 1, BLACK);
 
   drawArrow(12, 220);
 
-  tft.setCursor(10, 50);
-  tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println(F("Preheat time: 12 sec"));
+  tft.setTextColor(BLACK);
 
-  tft.setCursor(10, 100);
-  tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println(F("Version 1.1"));
+  tft.setTextSize(3);
+  tft.setCursor(10, 25);
+  tft.println(F("Reflow Oven"));
+  
+  tft.setTextSize(2);
+  tft.setCursor(10, 75);
+  tft.println(F("Version V1.1"));
 
+  tft.setCursor(10, 125);
+  tft.println(F("Roman Scheuss &"));
   tft.setCursor(10, 150);
-  tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println(F("Roman Scheuss"));
+  tft.println(F("Marco Graf"));
 
   actualScreen = settingsScreen;
 }
@@ -707,7 +696,6 @@ void drawTempPointValueScreen(int16_t value) {
 void drawTempInputScreen(void) {
   int counter = 1;
   tft.fillScreen(WHITE);
-  tft.setRotation(1);
 
   // draw grid
   for (i = 90; i < tft.height() - 1; i += 50) {
@@ -774,7 +762,6 @@ void drawTempInputScreen(void) {
 */
 void drawSollTempScreen(void) {
   tft.fillScreen(WHITE);
-  tft.setRotation(1);
   tft.drawLine(0, 200, tft.width() - 1, 200, BLACK);
 
   tft.drawLine(54, 201, 54, tft.height() - 1, BLACK);
