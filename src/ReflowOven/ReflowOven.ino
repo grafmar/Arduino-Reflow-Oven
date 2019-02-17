@@ -75,6 +75,8 @@ TempPoint SollTempPoints[6] = {
   {240,183}
 };
 
+// declare local functions
+buttons getTouchedButton(screens currentScreen, int16_t x, int16_t y);
 //--------------------------------------------------------------------------------------------------------------------------
 
 void setup(void) {
