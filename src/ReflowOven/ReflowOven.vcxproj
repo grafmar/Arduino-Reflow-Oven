@@ -107,6 +107,8 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Display.h" />
+    <ClInclude Include="Setpoint.h" />
     <ClInclude Include="ReflowOven.h">
       <FileType>CppCode</FileType>
     </ClInclude>
@@ -119,6 +121,7 @@
     <ClInclude Include="__vm\.ReflowOven.vsarduino.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Display.cpp" />
     <ClCompile Include="SWTFT.cpp" />
   </ItemGroup>
   <PropertyGroup>
@@ -127,4 +130,9 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
+  <ProjectExtensions>
+    <VisualStudio>
+      <UserProperties arduino.upload.port="COM7" />
+    </VisualStudio>
+  </ProjectExtensions>
 </Project>

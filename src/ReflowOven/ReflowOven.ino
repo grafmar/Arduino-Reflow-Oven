@@ -1,4 +1,16 @@
+// Reflow Oven
+//
+// Arduino controlled reflow oven built by utilizing a mini oven. It has a TFT
+// display with touch control and  thermocouple sensor to control the heating
+// elements.
+//
+// Authors: Roman Scheuss, Marco Graf
+// License: This project is licensed under the MIT License - see the LICENSE file for details
+
 #include "ReflowOven.h"
+#include "Display.h"
+#include "Setpoint.h"
+
 #include <Adafruit_GFX.h>    // Core graphics library
 #include <TouchScreen.h>
 #include <EEPROM.h>
@@ -7,19 +19,8 @@
 
 
 
-
-
-#define xCountDivisionMark 11
-#define xCountDivisionText 6
-#define yCountDivisionMark 7
-#define yCountDivisionText 6
-
-#define xOffsetChart 25
-#define yOffsetChart 186
-
-
-
 // generate objects
+Display display;
 MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
 
 // For better pressure precision, we need to know the resistance
@@ -27,24 +28,13 @@ MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
 // For the one we're using, its 300 ohms across the X plate
 TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
 
-// define the tft-object with the right library
-#ifdef USE_ST7781
-SWTFT tft;
-#elif defined(USE_SPFD5408)
-TftSpfd5408 tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
-#endif // USE_ST7781
-
-// define enumerations (screens and buttons)
-enum screens {homeScreen, sollTempScreen, tempInputScreen, settingsScreen, noChange};
-screens actualScreen = homeScreen;
-
-enum buttons {buttonSollTemp, buttonSettings, buttonBack, buttonP1, buttonP2, buttonP3, buttonP4, buttonP5, button0, button1, button2, button3, button4, button5, button6, button7, button8, button9,  buttonDel, buttonOK, buttonStartStopReset, buttonTime, buttonTemp, noButton};
+enum buttons { buttonSollTemp, buttonSettings, buttonBack, buttonP1, buttonP2, buttonP3, buttonP4, buttonP5, button0, button1, button2, button3, button4, button5, button6, button7, button8, button9, buttonDel, buttonOK, buttonStartStopReset, buttonTime, buttonTemp, noButton };
 buttons touchedButton = noButton;
 buttons prevButton = noButton;
 buttons actualInputSelection = buttonTemp;
 
-int selectedTempPointValue = 0;
-char selectedTempPoint = 0;
+uint16_t selectedTempPointValue = 0;
+uint8_t selectedTempPoint = 0;
 
 uint32_t lastMeasurementMS;
 boolean timeToMeasure = false;
@@ -61,12 +51,9 @@ uint16_t preHeatTime = 12;
 
 double temp;
 
-struct TempPoint {
-  int16_t t;
-  int16_t T;
-};
+
 // define default temperature
-TempPoint SollTempPoints[6] = {
+Setpoint SollTempPoints[6] ={
   {0,25},
   {30,100},
   {120,150},
@@ -76,805 +63,447 @@ TempPoint SollTempPoints[6] = {
 };
 
 // declare local functions
-buttons getTouchedButton(screens currentScreen, int16_t x, int16_t y);
+buttons getTouchedButton(Display::screen currentScreen, int16_t x, int16_t y);
 //--------------------------------------------------------------------------------------------------------------------------
 
 void setup(void) {
-  // initialize serial communication
-  Serial.begin(115200);
-  Serial.println(F("Startup... Ready"));
+    // initialize serial communication
+    Serial.begin(115200);
+    Serial.println(F("Startup... Ready"));
 
-  // clear istTemp array
-  for (i = 0; i < 301; i++) {
-    istTemp[i] = 0;
-  }
+    // clear istTemp array
+    for (i = 0; i < 301; i++) {
+        istTemp[i] = 0;
+    }
 
-  // reset and start display
-  tft.reset();
-  uint16_t identifier = tft.readID();
-  Serial.print(F("Identifier: "));
-  Serial.println(identifier,HEX);
-  identifier = 0x9341;
-  tft.begin(identifier);
-  tft.setRotation(ROTATION);
+    // initialize heater pin
+    pinMode(heaterPin, OUTPUT);
 
-  // initialize heater pin
-  pinMode(heaterPin, OUTPUT);
+    // reset and start display
+    display.begin();
 
-  // draw homescreen
-  drawHomeScreen();
-  delay(1000);
+    // draw homescreen
+    display.drawHomeScreen(isStarted, isFinish, SollTempPoints);
+    delay(1000);
 
-  //for(i = 0; i < 12; i++){
-  // Serial.println(EEPROM.read(i));
-  //}
-  // for (i = 0; i < 6; i++) {
-  // EEPROM.write(2 * i, SollTempPoints[i].t);
-  // EEPROM.write(2 * i + 1, SollTempPoints[i].T);
-  // }
+    //for(i = 0; i < 12; i++){
+    // Serial.println(EEPROM.read(i));
+    //}
+    // for (i = 0; i < 6; i++) {
+    // EEPROM.write(2 * i, SollTempPoints[i].t);
+    // EEPROM.write(2 * i + 1, SollTempPoints[i].T);
+    // }
 
-  lastMeasurementMS = millis();
+    lastMeasurementMS = millis();
 }
 
 //--------------------------------------------------------------------------------------------------------
 void loop(void) {
-  if ((millis() - lastMeasurementMS) >= 1000) {
-    lastMeasurementMS += 1000;
-    timeToMeasure = true;
-  }
-
-  // get touched point
-  digitalWrite(13, HIGH);
-  TSPoint p = ts.getPoint();
-  TSPoint point;
-  digitalWrite(13, LOW);
-  pinMode(XM, OUTPUT);
-  pinMode(YP, OUTPUT);
-
-  // map to display size
-  point.x = map(p.y, TS_MINY, TS_MAXY, 0, 320);
-  point.y = map(p.x, TS_MINX, TS_MAXX, 240, 0);
-  point.z = p.z;
-
-  if (timeToMeasure) {
-
-    // read actual temperature
-    temp = thermocouple.readCelsius();
-
-    // safety deadlock--!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    if ((temp > 300) || isnan(temp)) {
-      digitalWrite(heaterPin, LOW);
-      tft.fillScreen(RED);
-      tft.setCursor(20, 100);
-      tft.setTextColor(BLACK);  tft.setTextSize(3);
-      if (temp > 300) {
-        tft.println(F("ERROR: TO HOT!!!"));
-      }
-      else {
-        tft.println(F("FAIL SENSOR!!!"));
-      }
-      while (1);
+    if ((millis() - lastMeasurementMS) >= 1000) {
+        lastMeasurementMS += 1000;
+        timeToMeasure = true;
     }
-    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    if (isStarted == true) {
+    // get touched point
+    digitalWrite(13, HIGH);
+    TSPoint p = ts.getPoint();
+    TSPoint point;
+    digitalWrite(13, LOW);
+    pinMode(XM, OUTPUT);
+    pinMode(YP, OUTPUT);
 
-      // to heat up during preheat time
-      if (preHeatTime > 0) {
-        heater = true;
-        digitalWrite(heaterPin, HIGH);
-        preHeatTime --;
-        drawRemainingTime(preHeatTime);
-      }
+    // map to display size
+    point.x = map(p.y, TS_MINY, TS_MAXY, 0, 320);
+    point.y = map(p.x, TS_MINX, TS_MAXX, 240, 0);
+    point.z = p.z;
 
-      // normal heat up
-      else {
-        istTemp[timeCounter] = uint16_t(temp);      // store istTemp in istTempArray
+    if (timeToMeasure) {
 
-        // to turn on and off the heater if necessary
-        if (istTemp[timeCounter] < sollTempLine[timeCounter]) {
-          heater = true;
-          digitalWrite(heaterPin, HIGH);
+        // read actual temperature
+        temp = thermocouple.readCelsius();
+
+        // safety deadlock--!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        if ((temp > 300) || isnan(temp)) {
+            digitalWrite(heaterPin, LOW);
+            if (temp > 300) {
+                display.drawErrorScreen(F("ERROR: TO HOT!!!"));
+            }
+            else {
+                display.drawErrorScreen(F("FAIL SENSOR!!!"));
+            }
+            while (1);
         }
-        else {
-          heater = false;
-          digitalWrite(heaterPin, LOW);
-        }
+        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-        // to terminate a reflow process
-        if (timeCounter >= SollTempPoints[5].t) {
-          timeCounter = 0;
-          isStarted = false;
-          isFinish = true;
-          heater = false;
-          digitalWrite(heaterPin, LOW);
-          drawHomeScreen();
-        }
-        drawIstTemp(istTemp);
-        timeCounter++;
-      }
-    }
+        if (isStarted == true) {
 
-    if ((actualScreen != tempInputScreen) && (actualScreen != settingsScreen)) {
-      drawActualTemp(temp);
-    }
-
-    timeToMeasure = false;
-  }
-
-  // limit the pressure force
-  if (point.z > MINPRESSURE && point.z < MAXPRESSURE) {
-    Serial.print(F("Touch: "));
-    Serial.print(point.x,DEC);
-    Serial.print(F(", "));
-    Serial.println(point.y,DEC);
-
-    touchedButton = getTouchedButton(actualScreen, point.x, point.y);
-
-    //to block buttonSollTemp and buttonSettings during reflow process
-    if (isStarted && (touchedButton == buttonSollTemp || touchedButton == buttonSettings)) {
-      touchedButton = noButton;
-      Serial.println(F("Locked -> noAction"));
-    }
-    //to block buttonSollTemp and buttonSettings before press reset
-    if (isFinish && (touchedButton == buttonSollTemp || touchedButton == buttonSettings)) {
-      touchedButton = noButton;
-      Serial.println(F("Locked -> noAction"));
-    }
-
-    if (prevButton != touchedButton) {
-
-      switch (actualScreen) {
-        case homeScreen: {
-            if (touchedButton == buttonSollTemp) {
-              drawSollTempScreen();
+            // to heat up during preheat time
+            if (preHeatTime > 0) {
+                heater = true;
+                digitalWrite(heaterPin, HIGH);
+                preHeatTime--;
+                display.drawRemainingTime(preHeatTime);
             }
 
-            if (touchedButton == buttonStartStopReset) {
+            // normal heat up
+            else {
+                istTemp[timeCounter] = uint16_t(temp);      // store istTemp in istTempArray
 
-              if (isStarted == false && isFinish == false) {  // starts reflow process
-                isStarted = true;
-                calcSollLine();
-              }
-              else {                // reset reflow process
-                isStarted = false;
-                heater = false;
-                digitalWrite(heaterPin, LOW);
-                isFinish = false;
-
-                timeCounter = 0;
-                preHeatTime = 12;
-
-                // clear istTempArray
-                for (i = 0; i < 301; i++) {
-                  istTemp[i] = 0;
+                // to turn on and off the heater if necessary
+                if (istTemp[timeCounter] < sollTempLine[timeCounter]) {
+                    heater = true;
+                    digitalWrite(heaterPin, HIGH);
                 }
-              }
-              drawHomeScreen();
-              touchedButton = noButton;
-            }
+                else {
+                    heater = false;
+                    digitalWrite(heaterPin, LOW);
+                }
 
-            if (touchedButton == buttonSettings) {
-              //Serial.println("buttonSettings touched");
-              drawSettingsScreen();
+                // to terminate a reflow process
+                if (timeCounter >= SollTempPoints[5].t) {
+                    timeCounter = 0;
+                    isStarted = false;
+                    isFinish = true;
+                    heater = false;
+                    digitalWrite(heaterPin, LOW);
+                    display.drawHomeScreen(isStarted, isFinish, SollTempPoints);
+                }
+                display.drawIstTemp(istTemp);
+                timeCounter++;
             }
-            break;
-          }
-        case sollTempScreen: {
-            if (touchedButton == buttonBack) {
-              // Serial.println("buttonBack touched");
-              drawHomeScreen();
-            }
-            if (touchedButton == buttonP1) {
-              //Serial.println("buttonP1 touched");
-              selectedTempPoint = 1;
-              drawTempInputScreen();
-            }
-            if (touchedButton == buttonP2) {
-              //Serial.println("buttonP2 touched");
-              selectedTempPoint = 2;
-              drawTempInputScreen();
-            }
-            if (touchedButton == buttonP3) {
-              //Serial.println("buttonP3 touched");
-              selectedTempPoint = 3;
-              drawTempInputScreen();
-            }
-            if (touchedButton == buttonP4) {
-              //Serial.println("buttonP4 touched");
-              selectedTempPoint = 4;
-              drawTempInputScreen();
-            }
-            if (touchedButton == buttonP5) {
-              //Serial.println("buttonP5 touched");
-              selectedTempPoint = 5;
-              drawTempInputScreen();
-            }
-            break;
-          }
-        case tempInputScreen: {
-            if (touchedButton == button0) {
-              //Serial.println("button0 touched");
-              selectedTempPointValue = selectedTempPointValue * 10;
-              drawTempPointValueScreen(selectedTempPointValue);
+        }
 
-            }
-            if (touchedButton == button1) {
-              //Serial.println("button1 touched");
-              selectedTempPointValue = selectedTempPointValue * 10 + 1;
-              drawTempPointValueScreen(selectedTempPointValue);
-              //
-            }
-            if (touchedButton == button2) {
-              //Serial.println("button2 touched");
-              selectedTempPointValue = selectedTempPointValue * 10 + 2;
-              drawTempPointValueScreen(selectedTempPointValue);
-              //
-            }
-            if (touchedButton == button3) {
-              //Serial.println("button3 touched");
-              selectedTempPointValue = selectedTempPointValue * 10 + 3;
-              drawTempPointValueScreen(selectedTempPointValue);
-              //
-            }
-            if (touchedButton == button4) {
-              //Serial.println("button4 touched");
-              selectedTempPointValue = selectedTempPointValue * 10 + 4;
-              drawTempPointValueScreen(selectedTempPointValue);
-              //
-            }
-            if (touchedButton == button5) {
-              //Serial.println("button5 touched");
-              selectedTempPointValue = selectedTempPointValue * 10 + 5;
-              drawTempPointValueScreen(selectedTempPointValue);
-              //
-            }
-            if (touchedButton == button6) {
-              //Serial.println("button6 touched");
-              selectedTempPointValue = selectedTempPointValue * 10 + 6;
-              drawTempPointValueScreen(selectedTempPointValue);
-              //
-            }
-            if (touchedButton == button7) {
-              //Serial.println("button7 touched");
-              selectedTempPointValue = selectedTempPointValue * 10 + 7;
-              drawTempPointValueScreen(selectedTempPointValue);
-              //
-            }
-            if (touchedButton == button8) {
-              //Serial.println("button8 touched");
-              selectedTempPointValue = selectedTempPointValue * 10 + 8;
-              drawTempPointValueScreen(selectedTempPointValue);
-              //
-            }
-            if (touchedButton == button9) {
-              //Serial.println("button9 touched");
-              selectedTempPointValue = selectedTempPointValue * 10 + 9;
-              drawTempPointValueScreen(selectedTempPointValue);
-              //
-            }
-            if (touchedButton == buttonDel) {
-              //Serial.println("buttonDel touched");
-              selectedTempPointValue = 0;
-              drawTempPointValueScreen(selectedTempPointValue);
-              //
-            }
-            if (touchedButton == buttonOK) {
-              //Serial.println("buttonOK touched");
+        if ((display.getActualScreen() != Display::tempInputScreen) && (display.getActualScreen() != Display::settingsScreen)) {
+            display.drawActualTemp(temp, heater);
+        }
 
-              if (actualInputSelection == buttonTime) {
-                if (selectedTempPointValue < 0) selectedTempPointValue = 0;
-                if (selectedTempPointValue > 300) selectedTempPointValue = 300;
-
-                SollTempPoints[selectedTempPoint].t = selectedTempPointValue;
-                // EEPROM.update(selectedTempPoint * 2, SollTempPoints[selectedTempPoint].t);    // update the EEPROM
-              }
-
-              else {
-                if (selectedTempPointValue < 0) selectedTempPointValue = 0;
-                if (selectedTempPointValue > 280) selectedTempPointValue = 280;
-
-                SollTempPoints[selectedTempPoint].T = selectedTempPointValue;
-                //EEPROM.update(selectedTempPoint * 2 + 1, SollTempPoints[selectedTempPoint].T);  // update the EEPROM
-              }
-
-              drawSollTempScreen();
-            }
-
-            if (touchedButton == buttonTemp) {
-              //Serial.println("buttonTemp touched");
-              actualInputSelection = buttonTemp;
-              drawTempInputScreen();
-            }
-            if (touchedButton == buttonTime) {
-              //Serial.println("buttonTime touched");
-              actualInputSelection = buttonTime;
-              drawTempInputScreen();
-            }
-
-            touchedButton = noButton;
-            break;
-          }
-
-        case settingsScreen: {
-            if (touchedButton == buttonBack) {
-              //Serial.println("buttonBack touched");
-              drawHomeScreen();
-            }
-            break;
-          }
-
-        case noChange: {
-            break;
-          }
-        default: {
-            break;
-          }
-      }
+        timeToMeasure = false;
     }
-  }
-  prevButton = touchedButton;
-  delay(50);
+
+    // limit the pressure force
+    if (point.z > MINPRESSURE && point.z < MAXPRESSURE) {
+        Serial.print(F("Touch: "));
+        Serial.print(point.x, DEC);
+        Serial.print(F(", "));
+        Serial.println(point.y, DEC);
+
+        touchedButton = getTouchedButton(display.getActualScreen(), point.x, point.y);
+
+        //to block buttonSollTemp and buttonSettings during reflow process
+        if (isStarted && (touchedButton == buttonSollTemp || touchedButton == buttonSettings)) {
+            touchedButton = noButton;
+            Serial.println(F("Locked -> noAction"));
+        }
+        //to block buttonSollTemp and buttonSettings before press reset
+        if (isFinish && (touchedButton == buttonSollTemp || touchedButton == buttonSettings)) {
+            touchedButton = noButton;
+            Serial.println(F("Locked -> noAction"));
+        }
+
+        if (prevButton != touchedButton) {
+
+            switch (display.getActualScreen()) {
+                case Display::homeScreen:
+                    if (touchedButton == buttonSollTemp) {
+                        display.drawSollTempScreen(SollTempPoints);
+                    }
+
+                    if (touchedButton == buttonStartStopReset) {
+
+                        if (isStarted == false && isFinish == false) {  // starts reflow process
+                            isStarted = true;
+                            calcSollLine();
+                        }
+                        else {                // reset reflow process
+                            isStarted = false;
+                            heater = false;
+                            digitalWrite(heaterPin, LOW);
+                            isFinish = false;
+
+                            timeCounter = 0;
+                            preHeatTime = 12;
+
+                            // clear istTempArray
+                            for (i = 0; i < 301; i++) {
+                                istTemp[i] = 0;
+                            }
+                        }
+                        display.drawHomeScreen(isStarted, isFinish, SollTempPoints);
+                        touchedButton = noButton;
+                    }
+
+                    if (touchedButton == buttonSettings) {
+                        //Serial.println("buttonSettings touched");
+                        display.drawSettingsScreen();
+                    }
+                    break;
+                case Display::sollTempScreen:
+                    if (touchedButton == buttonBack) {
+                        // Serial.println("buttonBack touched");
+                        display.drawHomeScreen(isStarted, isFinish, SollTempPoints);
+                    }
+                    if (touchedButton == buttonP1) {
+                        //Serial.println("buttonP1 touched");
+                        selectedTempPoint = 1;
+                        display.drawTempInputScreen(actualInputSelection == buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
+                    }
+                    if (touchedButton == buttonP2) {
+                        //Serial.println("buttonP2 touched");
+                        selectedTempPoint = 2;
+                        display.drawTempInputScreen(actualInputSelection == buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
+                    }
+                    if (touchedButton == buttonP3) {
+                        //Serial.println("buttonP3 touched");
+                        selectedTempPoint = 3;
+                        display.drawTempInputScreen(actualInputSelection == buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
+                    }
+                    if (touchedButton == buttonP4) {
+                        //Serial.println("buttonP4 touched");
+                        selectedTempPoint = 4;
+                        display.drawTempInputScreen(actualInputSelection == buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
+                    }
+                    if (touchedButton == buttonP5) {
+                        //Serial.println("buttonP5 touched");
+                        selectedTempPoint = 5;
+                        display.drawTempInputScreen(actualInputSelection == buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
+                    }
+                    break;
+                case Display::tempInputScreen:
+                    if (touchedButton == button0) {
+                        //Serial.println("button0 touched");
+                        selectedTempPointValue = selectedTempPointValue * 10;
+                        display.drawTempPointValueScreen(selectedTempPointValue);
+
+                    }
+                    if (touchedButton == button1) {
+                        //Serial.println("button1 touched");
+                        selectedTempPointValue = selectedTempPointValue * 10 + 1;
+                        display.drawTempPointValueScreen(selectedTempPointValue);
+                        //
+                    }
+                    if (touchedButton == button2) {
+                        //Serial.println("button2 touched");
+                        selectedTempPointValue = selectedTempPointValue * 10 + 2;
+                        display.drawTempPointValueScreen(selectedTempPointValue);
+                        //
+                    }
+                    if (touchedButton == button3) {
+                        //Serial.println("button3 touched");
+                        selectedTempPointValue = selectedTempPointValue * 10 + 3;
+                        display.drawTempPointValueScreen(selectedTempPointValue);
+                        //
+                    }
+                    if (touchedButton == button4) {
+                        //Serial.println("button4 touched");
+                        selectedTempPointValue = selectedTempPointValue * 10 + 4;
+                        display.drawTempPointValueScreen(selectedTempPointValue);
+                        //
+                    }
+                    if (touchedButton == button5) {
+                        //Serial.println("button5 touched");
+                        selectedTempPointValue = selectedTempPointValue * 10 + 5;
+                        display.drawTempPointValueScreen(selectedTempPointValue);
+                        //
+                    }
+                    if (touchedButton == button6) {
+                        //Serial.println("button6 touched");
+                        selectedTempPointValue = selectedTempPointValue * 10 + 6;
+                        display.drawTempPointValueScreen(selectedTempPointValue);
+                        //
+                    }
+                    if (touchedButton == button7) {
+                        //Serial.println("button7 touched");
+                        selectedTempPointValue = selectedTempPointValue * 10 + 7;
+                        display.drawTempPointValueScreen(selectedTempPointValue);
+                        //
+                    }
+                    if (touchedButton == button8) {
+                        //Serial.println("button8 touched");
+                        selectedTempPointValue = selectedTempPointValue * 10 + 8;
+                        display.drawTempPointValueScreen(selectedTempPointValue);
+                        //
+                    }
+                    if (touchedButton == button9) {
+                        //Serial.println("button9 touched");
+                        selectedTempPointValue = selectedTempPointValue * 10 + 9;
+                        display.drawTempPointValueScreen(selectedTempPointValue);
+                        //
+                    }
+                    if (touchedButton == buttonDel) {
+                        //Serial.println("buttonDel touched");
+                        selectedTempPointValue = 0;
+                        display.drawTempPointValueScreen(selectedTempPointValue);
+                        //
+                    }
+                    if (touchedButton == buttonOK) {
+                        //Serial.println("buttonOK touched");
+
+                        if (actualInputSelection == buttonTime) {
+                            if (selectedTempPointValue < 0) selectedTempPointValue = 0;
+                            if (selectedTempPointValue > 300) selectedTempPointValue = 300;
+
+                            SollTempPoints[selectedTempPoint].t = selectedTempPointValue;
+                            // EEPROM.update(selectedTempPoint * 2, SollTempPoints[selectedTempPoint].t);    // update the EEPROM
+                        }
+
+                        else {
+                            if (selectedTempPointValue < 0) selectedTempPointValue = 0;
+                            if (selectedTempPointValue > 280) selectedTempPointValue = 280;
+
+                            SollTempPoints[selectedTempPoint].T = selectedTempPointValue;
+                            //EEPROM.update(selectedTempPoint * 2 + 1, SollTempPoints[selectedTempPoint].T);  // update the EEPROM
+                        }
+
+                        display.drawSollTempScreen(SollTempPoints);
+                    }
+
+                    if (touchedButton == buttonTemp) {
+                        //Serial.println("buttonTemp touched");
+                        actualInputSelection = buttonTemp;
+                        display.drawTempInputScreen(actualInputSelection == buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
+                    }
+                    if (touchedButton == buttonTime) {
+                        //Serial.println("buttonTime touched");
+                        actualInputSelection = buttonTime;
+                        display.drawTempInputScreen(actualInputSelection == buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
+                    }
+
+                    touchedButton = noButton;
+                    break;
+
+                case Display::settingsScreen:
+                    if (touchedButton == buttonBack) {
+                        //Serial.println("buttonBack touched");
+                        display.drawHomeScreen(isStarted, isFinish, SollTempPoints);
+                    }
+                    break;
+
+                case Display::noChange:
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    prevButton = touchedButton;
+    delay(50);
 }
 
 //--------------------------------------------------------------------------------
 /* This function get the actual screen and the touch position and return the touched button
 
    Input:
-    - [screens] currentScreen: The Screen which is currently visible on the TFT.
+    - [screen] currentScreen: The Screen which is currently visible on the TFT.
     - [int16_t] x:             The x-position of the touch.
     - [int16_t] y:             The y-position of the touch.
 
     Return:
     - [buttons]:               The button which ist touched
 */
-buttons getTouchedButton(screens currentScreen, int16_t x, int16_t y ) {
-  switch (currentScreen) {
-    case homeScreen: {
-        if (x < 106 && x > 0 && y < 240 && y > 200) {
-          return buttonSollTemp;
-        }
-        if (x < 213 && x > 106 && y < 240 && y > 200) {
-          return buttonStartStopReset;
-        }
-        if (x < 320 && x > 213 && y < 240 && y > 200) {
-          return buttonSettings;
-        }
-        else {
-          return noButton;
-        }
-      }
+buttons getTouchedButton(Display::screen currentScreen, int16_t x, int16_t y) {
+    switch (currentScreen) {
+        case Display::homeScreen:
+            if (x < 106 && x > 0 && y < 240 && y > 200) {
+                return buttonSollTemp;
+            }
+            if (x < 213 && x > 106 && y < 240 && y > 200) {
+                return buttonStartStopReset;
+            }
+            if (x < 320 && x > 213 && y < 240 && y > 200) {
+                return buttonSettings;
+            }
+            else {
+                return noButton;
+            }
 
-    case sollTempScreen: {
-        if (x < 54 && x > 0 && y < 240 && y > 200) {
-          return buttonBack;
-        }
-        if (x < 107 && x > 54 && y < 240 && y > 200) {
-          return buttonP1;
-        }
-        if (x < 161 && x > 107 && y < 240 && y > 200) {
-          return buttonP2;
-        }
-        if (x < 214 && x > 161 && y < 240 && y > 200) {
-          return buttonP3;
-        }
-        if (x < 268 && x > 214 && y < 240 && y > 200) {
-          return buttonP4;
-        }
-        if (x < 320 && x > 268 && y < 240 && y > 200) {
-          return buttonP5;
-        }
-        else {
-          return noButton;
-        }
-      }
+        case Display::sollTempScreen:
+            if (x < 54 && x > 0 && y < 240 && y > 200) {
+                return buttonBack;
+            }
+            if (x < 107 && x > 54 && y < 240 && y > 200) {
+                return buttonP1;
+            }
+            if (x < 161 && x > 107 && y < 240 && y > 200) {
+                return buttonP2;
+            }
+            if (x < 214 && x > 161 && y < 240 && y > 200) {
+                return buttonP3;
+            }
+            if (x < 268 && x > 214 && y < 240 && y > 200) {
+                return buttonP4;
+            }
+            if (x < 320 && x > 268 && y < 240 && y > 200) {
+                return buttonP5;
+            }
+            else {
+                return noButton;
+            }
 
-    case tempInputScreen: {
-        if (x < 80 && x > 0 && y < 140 && y > 90) {
-          return button1;
-        }
-        if (x < 160 && x > 80 && y < 140 && y > 90) {
-          return button2;
-        }
-        if (x < 240 && x > 160 && y < 140 && y > 90) {
-          return button3;
-        }
+        case Display::tempInputScreen:
+            if (x < 80 && x > 0 && y < 140 && y > 90) {
+                return button1;
+            }
+            if (x < 160 && x > 80 && y < 140 && y > 90) {
+                return button2;
+            }
+            if (x < 240 && x > 160 && y < 140 && y > 90) {
+                return button3;
+            }
 
-        if (x < 80 && x > 0 && y < 190 && y > 140) {
-          return button4;
-        }
-        if (x < 160 && x > 80 && y < 190 && y > 140) {
-          return button5;
-        }
-        if (x < 240 && x > 160 && y < 190 && y > 140) {
-          return button6;
-        }
+            if (x < 80 && x > 0 && y < 190 && y > 140) {
+                return button4;
+            }
+            if (x < 160 && x > 80 && y < 190 && y > 140) {
+                return button5;
+            }
+            if (x < 240 && x > 160 && y < 190 && y > 140) {
+                return button6;
+            }
 
-        if (x < 80 && x > 0 && y < 240 && y > 190) {
-          return button7;
-        }
-        if (x < 160 && x > 80 && y < 240 && y > 190) {
-          return button8;
-        }
-        if (x < 240 && x > 160 && y < 240 && y > 190) {
-          return button9;
-        }
+            if (x < 80 && x > 0 && y < 240 && y > 190) {
+                return button7;
+            }
+            if (x < 160 && x > 80 && y < 240 && y > 190) {
+                return button8;
+            }
+            if (x < 240 && x > 160 && y < 240 && y > 190) {
+                return button9;
+            }
 
-        if (x < 320 && x > 240 && y < 140 && y > 90) {
-          return buttonDel;
-        }
-        if (x < 320 && x > 240 && y < 190 && y > 140) {
-          return button0;
-        }
-        if (x < 320 && x > 240 && y < 240 && y > 190) {
-          return buttonOK;
-        }
-        if (x < 80 && x > 0 && y < 45 && y > 0) {
-          return buttonTemp;
-        }
-        if (x < 80 && x > 0 && y < 90 && y > 45) {
-          return buttonTime;
-        }
+            if (x < 320 && x > 240 && y < 140 && y > 90) {
+                return buttonDel;
+            }
+            if (x < 320 && x > 240 && y < 190 && y > 140) {
+                return button0;
+            }
+            if (x < 320 && x > 240 && y < 240 && y > 190) {
+                return buttonOK;
+            }
+            if (x < 80 && x > 0 && y < 45 && y > 0) {
+                return buttonTemp;
+            }
+            if (x < 80 && x > 0 && y < 90 && y > 45) {
+                return buttonTime;
+            }
 
-        else {
-          return noButton;
-        }
-      }
+            else {
+                return noButton;
+            }
 
-    case settingsScreen: {
-        if (x < 54 && x > 0 && y < 240 && y > 200) {
-          return buttonBack;
-        }
+        case Display::settingsScreen:
+            if (x < 54 && x > 0 && y < 240 && y > 200) {
+                return buttonBack;
+            }
 
-        else {
-          return noButton;
-        }
-      }
+            else {
+                return noButton;
+            }
 
-    default: {
-        return noButton;
-      }
-  }
-}
-
-/* This funtion draws the ist-temperature line on the screen
-
-   Input:
-    - [int16_t] istTemp[]:             ist-temperatur array with the stored temperatur values
-
-    Return:
-    - no return
-*/
-void drawIstTemp(uint16_t istTemp[]) {
-  for (i = 0; i < 301; i++) {
-    if (istTemp[i] > 0) {
-      tft.drawPixel(int16_t(i * 250.0 / 300 + 25), int16_t(186 - istTemp[i] * 156.0 / 300), RED);
+        default:
+            return noButton;
     }
-  }
 }
 
-/* This function draws the actual measured temperature in the middle top. If the heater is on the value has a red background
-   Input:
-    - [float] actTemp: The actuel measured temperature of the thermocouple sensor
-
-    Return:
-    - no return
-*/
-void drawActualTemp(float actTemp) {
-  if (heater == true) {
-    tft.fillRect(130, 0, 75, 25, RED);
-  }
-  else {
-    tft.fillRect(130, 0, 75, 25, WHITE);
-  }
-
-  tft.setCursor(130, 5);
-  tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println(actTemp);
-}
-
-/* This function draws the time during preheat
-   Input:
-    - [uint16_t] remainingTime: The remaining time of preheat process
-
-    Return:
-    - no return
-*/
-void drawRemainingTime(uint16_t remainingTime) {
-  tft.fillRect(100, 160, 130, 25, WHITE);
-  if (remainingTime > 0) {
-    tft.setCursor(100, 165);
-    tft.setTextColor(BLACK);  tft.setTextSize(2);
-    tft.print(F("preHeat: "));
-    tft.print(remainingTime);
-  }
-}
-
-
-/* This function draws the home screen
-
-   Input:
-    - no inputs
-
-    Return:
-    - no return
-*/
-void drawHomeScreen(void) {
-  tft.fillScreen(WHITE);
-  tft.drawLine(0, 200, tft.width() - 1, 200, BLACK);
-  tft.drawLine(106, 201, 106, tft.height() - 1, BLACK);
-  tft.drawLine(213, 201, 213, tft.height() - 1, BLACK);
-
-  tft.setCursor(5, 213);
-  tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println(F("Settings"));
-
-  tft.setCursor(128, 213);
-  tft.setTextColor(BLACK);  tft.setTextSize(2);
-
-  Serial.println(isStarted);
-  Serial.println(isFinish);
-
-  if (isStarted == true && isFinish == false) {   //during reflow process
-    tft.println(F("Stop"));
-  }
-  else if (isStarted == false && isFinish == true) {   //end of reflow process
-    tft.println(F("Reset"));
-  }
-  else {
-    tft.println(F("Start"));
-  }
-
-  tft.setCursor(238, 213);
-  tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println(F("About"));
-
-  tft.drawLine(270, 15, 280, 15, BLUE);     // Label soll
-  tft.drawLine(270, 16, 280, 16, BLUE);
-  tft.setCursor(282, 13);
-  tft.setTextColor(BLUE);  tft.setTextSize(1);
-  tft.println(F("Soll"));
-
-  tft.drawLine(270, 25, 280, 25, RED);     // Label ist
-  tft.drawLine(270, 26, 280, 26, RED);
-  tft.setCursor(282, 23);
-  tft.setTextColor(RED);  tft.setTextSize(1);
-  tft.println(F("Ist"));
-
-  drawChartAxis();
-  drawSollLine(BLUE, false);
-  actualScreen = homeScreen;
-}
-
-/* This function draws the settings screen
-
-   Input:
-    - no inputs
-
-    Return:
-    - no return
-*/
-void drawSettingsScreen(void) {
-  tft.fillScreen(WHITE);
-
-  tft.drawLine(0, 200, 54, 200, BLACK);
-  tft.drawLine(54, 201, 54, tft.height() - 1, BLACK);
-
-  drawArrow(12, 220);
-
-  tft.setTextColor(BLACK);
-
-  tft.setTextSize(3);
-  tft.setCursor(10, 25);
-  tft.println(F("Reflow Oven"));
-  
-  tft.setTextSize(2);
-  tft.setCursor(10, 75);
-  tft.println(F("Version V1.1"));
-
-  tft.setCursor(10, 125);
-  tft.println(F("Roman Scheuss &"));
-  tft.setCursor(10, 150);
-  tft.println(F("Marco Graf"));
-
-  actualScreen = settingsScreen;
-}
-
-void drawTempPointValueScreen(int16_t value) {
-  tft.fillRect(81, 0, tft.width() - 1, 90, WHITE);
-  tft.setCursor(100, 35);
-  tft.setTextColor(BLACK);  tft.setTextSize(3);
-  tft.println(value);
-}
-
-/* This function draw the temperatur input screen
-
-   Input:
-    - no inputs
-
-    Return:
-    - no return
-*/
-void drawTempInputScreen(void) {
-  int counter = 1;
-  tft.fillScreen(WHITE);
-
-  // draw grid
-  for (i = 90; i < tft.height() - 1; i += 50) {
-    tft.drawLine(0, i, tft.width() - 1, i, BLACK);
-  }
-  for (i = 160; i < tft.width() - 1; i += 80) {
-    tft.drawLine(i, 90, i, tft.height() - 1, BLACK);
-  }
-  tft.drawLine(80, 0, 80, tft.height() - 1, BLACK);
-  tft.drawLine(0, 45, 80, 45, BLACK);
-
-
-  // draw numbers in grid
-  tft.setTextColor(BLACK);  tft.setTextSize(3);
-  for (j = 104; j < tft.height() - 1; j += 50) {
-    for (i = 33; i < 240; i += 80) {
-      tft.setCursor(i, j);
-      tft.println(counter);
-      counter++;
-    }
-  }
-
-  tft.setCursor(257, 104);
-  tft.setTextColor(BLACK);  tft.setTextSize(3);
-  tft.println(F("Del"));
-
-  tft.setCursor(273, 154);
-  tft.setTextColor(BLACK);  tft.setTextSize(3);
-  tft.println(F("0"));
-
-  tft.setCursor(264, 204);
-  tft.setTextColor(BLACK);  tft.setTextSize(3);
-  tft.println(F("OK"));
-
-  if (actualInputSelection == buttonTemp) {
-    tft.fillRect(0, 0, 80, 45, GREEN);
-    selectedTempPointValue = SollTempPoints[selectedTempPoint].T;
-  }
-  else {
-    tft.fillRect(0, 46, 80, 44, GREEN);
-    selectedTempPointValue = SollTempPoints[selectedTempPoint].t;
-  }
-
-  tft.setCursor(5, 15);
-  tft.setTextColor(BLACK);  tft.setTextSize(3);
-  tft.println(F("Temp"));
-
-  tft.setCursor(5, 60);
-  tft.setTextColor(BLACK);  tft.setTextSize(3);
-  tft.println(F("Time"));
-
-  drawTempPointValueScreen(selectedTempPointValue);
-
-  actualScreen = tempInputScreen;
-}
-
-/* This function draws the soll-temperature screen
-
-   Input:
-    - no inputs
-
-    Return:
-    - no return
-*/
-void drawSollTempScreen(void) {
-  tft.fillScreen(WHITE);
-  tft.drawLine(0, 200, tft.width() - 1, 200, BLACK);
-
-  tft.drawLine(54, 201, 54, tft.height() - 1, BLACK);
-  tft.drawLine(107, 201, 107, tft.height() - 1, BLACK);
-  tft.drawLine(161, 201, 161, tft.height() - 1, BLACK);
-  tft.drawLine(214, 201, 214, tft.height() - 1, BLACK);
-  tft.drawLine(268, 201, 268, tft.height() - 1, BLACK);
-
-
-  tft.setCursor(70, 213);
-  tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println(F("P1"));
-
-  tft.setCursor(123, 213);
-  tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println(F("P2"));
-
-  tft.setCursor(177, 213);
-  tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println(F("P3"));
-
-  tft.setCursor(230, 213);
-  tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println(F("P4"));
-
-  tft.setCursor(284, 213);
-  tft.setTextColor(BLACK);  tft.setTextSize(2);
-  tft.println(F("P5"));
-
-  drawChartAxis();
-  drawSollLine(BLUE, true);
-  drawArrow(12, 220);
-  actualScreen = sollTempScreen;
-
-}
-
-void drawArrow(int16_t x, int16_t y) {
-  tft.fillTriangle(x, y, x + 15, y + 10, x + 15, y  - 10, BLACK);
-  tft.fillRect(x + 15, y - 5, 15, 11, BLACK);
-}
-
-
-
-/* This function draws the soll-temperatur line in a existing chart
-
-   Input:
-    - [uint16_t] color: The color of the line
-
-    Return:
-    - no return
-*/
-void drawSollLine(uint16_t color, boolean drawIndicators) {
-  int16_t x1, x2, y1, y2;
-
-  x1 = int16_t(SollTempPoints[0].t * 25 / 30.0 + xOffsetChart);
-  y1 = int16_t(yOffsetChart - SollTempPoints[0].T * 26 / 50.0);
-  x2 = int16_t(SollTempPoints[1].t * 25 / 30.0 + xOffsetChart);
-  y2 = int16_t(yOffsetChart - SollTempPoints[1].T * 26 / 50.0);
-  tft.drawLine(x1, y1, x2, y2, color);
-
-  x1 = int16_t(SollTempPoints[1].t * 25 / 30.0 + xOffsetChart);
-  y1 = int16_t(yOffsetChart - SollTempPoints[1].T * 26 / 50.0);
-  x2 = int16_t(SollTempPoints[2].t * 25 / 30.0 + xOffsetChart);
-  y2 = int16_t(yOffsetChart - SollTempPoints[2].T * 26 / 50.0);
-  tft.drawLine(x1, y1, x2, y2, color);
-
-  if (drawIndicators) {
-    tft.setCursor(x1 - 10, y1 - 20);
-    tft.setTextColor(BLACK);  tft.setTextSize(2);
-    tft.println(F("P1"));
-  }
-
-  x1 = int16_t(SollTempPoints[2].t * 25 / 30.0 + xOffsetChart);
-  y1 = int16_t(yOffsetChart - SollTempPoints[2].T * 26 / 50.0);
-  x2 = int16_t(SollTempPoints[3].t * 25 / 30.0 + xOffsetChart);
-  y2 = int16_t(yOffsetChart - SollTempPoints[3].T * 26 / 50.0);
-  tft.drawLine(x1, y1, x2, y2, color);
-
-  if (drawIndicators) {
-    tft.setCursor(x1 - 10, y1 - 20);
-    tft.setTextColor(BLACK);  tft.setTextSize(2);
-    tft.println(F("P2"));
-  }
-
-  x1 = int16_t(SollTempPoints[3].t * 25 / 30.0 + xOffsetChart);
-  y1 = int16_t(yOffsetChart - SollTempPoints[3].T * 26 / 50.0);
-  x2 = int16_t(SollTempPoints[4].t * 25 / 30.0 + xOffsetChart);
-  y2 = int16_t(yOffsetChart - SollTempPoints[4].T * 26 / 50.0);
-  tft.drawLine(x1, y1, x2, y2, color);
-
-  if (drawIndicators) {
-    tft.setCursor(x1 - 10, y1 - 20);
-    tft.setTextColor(BLACK);  tft.setTextSize(2);
-    tft.println(F("P3"));
-  }
-
-  x1 = int16_t(SollTempPoints[4].t * 25 / 30.0 + xOffsetChart);
-  y1 = int16_t(yOffsetChart - SollTempPoints[4].T * 26 / 50.0);
-  x2 = int16_t(SollTempPoints[5].t * 25 / 30.0 + xOffsetChart);
-  y2 = int16_t(yOffsetChart - SollTempPoints[5].T * 26 / 50.0);
-  tft.drawLine(x1, y1, x2, y2, color);
-
-  if (drawIndicators) {
-    tft.setCursor(x1 - 10, y1 - 20);
-    tft.setTextColor(BLACK);  tft.setTextSize(2);
-    tft.println(F("P4"));
-    tft.setCursor(x2 - 10, y2 - 20);
-    tft.setTextColor(BLACK);  tft.setTextSize(2);
-    tft.println(F("P5"));
-  }
-}
 
 
 /* This function calculate the temperature points of the soll-temperatur line with the five soll-temperature points
@@ -886,89 +515,36 @@ void drawSollLine(uint16_t color, boolean drawIndicators) {
     - no return
 */
 void calcSollLine(void) {
-  float m = 0;      //gain
+    float m = 0;      //gain
 
-  //section one (point0 to point1)
-  m = (float(SollTempPoints[1].T - SollTempPoints[0].T)) / (SollTempPoints[1].t - SollTempPoints[0].t);
-  for (int i = 0; i <= SollTempPoints[1].t; i++) {
-    sollTempLine[i] = m * i + SollTempPoints[1].t;
-  }
+    //section one (point0 to point1)
+    m = (float(SollTempPoints[1].T - SollTempPoints[0].T)) / (SollTempPoints[1].t - SollTempPoints[0].t);
+    for (int i = 0; i <= SollTempPoints[1].t; i++) {
+        sollTempLine[i] = m * i + SollTempPoints[1].t;
+    }
 
-  //section two (point1 to point2)
-  m = (float(SollTempPoints[2].T - SollTempPoints[1].T)) / (SollTempPoints[2].t - SollTempPoints[1].t);
-  for (int i = (SollTempPoints[1].t + 1); i <= SollTempPoints[2].t; i++) {
-    sollTempLine[i] = m * (i - SollTempPoints[1].t) + SollTempPoints[1].T;
-  }
+    //section two (point1 to point2)
+    m = (float(SollTempPoints[2].T - SollTempPoints[1].T)) / (SollTempPoints[2].t - SollTempPoints[1].t);
+    for (int i = (SollTempPoints[1].t + 1); i <= SollTempPoints[2].t; i++) {
+        sollTempLine[i] = m * (i - SollTempPoints[1].t) + SollTempPoints[1].T;
+    }
 
-  //section three (point2 to point3)
-  m = (float(SollTempPoints[3].T - SollTempPoints[2].T)) / (SollTempPoints[3].t - SollTempPoints[2].t);
-  for (int i = (SollTempPoints[2].t + 1); i <= SollTempPoints[3].t; i++) {
-    sollTempLine[i] = m * (i - SollTempPoints[2].t) + SollTempPoints[2].T;
-  }
+    //section three (point2 to point3)
+    m = (float(SollTempPoints[3].T - SollTempPoints[2].T)) / (SollTempPoints[3].t - SollTempPoints[2].t);
+    for (int i = (SollTempPoints[2].t + 1); i <= SollTempPoints[3].t; i++) {
+        sollTempLine[i] = m * (i - SollTempPoints[2].t) + SollTempPoints[2].T;
+    }
 
-  ///section four (point3 to point4)
-  m = (float(SollTempPoints[4].T - SollTempPoints[3].T)) / (SollTempPoints[4].t - SollTempPoints[3].t);
-  for (int i = (SollTempPoints[3].t + 1); i <= SollTempPoints[4].t; i++) {
-    sollTempLine[i] = m * (i - SollTempPoints[3].t) + SollTempPoints[3].T;
-  }
+    ///section four (point3 to point4)
+    m = (float(SollTempPoints[4].T - SollTempPoints[3].T)) / (SollTempPoints[4].t - SollTempPoints[3].t);
+    for (int i = (SollTempPoints[3].t + 1); i <= SollTempPoints[4].t; i++) {
+        sollTempLine[i] = m * (i - SollTempPoints[3].t) + SollTempPoints[3].T;
+    }
 
-  ///section five (point4 to point5)
-  m = (float(SollTempPoints[5].T - SollTempPoints[4].T)) / (SollTempPoints[5].t - SollTempPoints[4].t);
-  for (int i = (SollTempPoints[4].t + 1); i <= SollTempPoints[5].t; i++) {
-    sollTempLine[i] = m * (i - SollTempPoints[4].t) + SollTempPoints[4].T;
-  }
+    ///section five (point4 to point5)
+    m = (float(SollTempPoints[5].T - SollTempPoints[4].T)) / (SollTempPoints[5].t - SollTempPoints[4].t);
+    for (int i = (SollTempPoints[4].t + 1); i <= SollTempPoints[5].t; i++) {
+        sollTempLine[i] = m * (i - SollTempPoints[4].t) + SollTempPoints[4].T;
+    }
 }
-
-/* This function draw the axis of the chart in a existing screen
-
-   Input:
-    - no inputs
-    Return:
-    - not return
-*/
-void drawChartAxis(void) {
-  tft.drawLine(25, 20, 25, 188, BLACK);       // vertical axis
-  tft.drawLine(25, 20, 23, 22, BLACK);       // Y arrow
-  tft.drawLine(25, 20, 27, 22, BLACK);       // Y arrow
-  tft.setCursor(18, 10);
-  tft.setTextColor(BLACK);  tft.setTextSize(1);
-  tft.println(F("T[C]"));
-
-  tft.drawLine(23, 186, 300, 186, BLACK);     // horizontal axis
-  tft.drawLine(298, 184, 300, 186, BLACK);     // X arrow
-  tft.drawLine(298, 188, 300, 186, BLACK);     // X arrow
-  tft.setCursor(290, 175);
-  tft.setTextColor(BLACK);  tft.setTextSize(1);
-  tft.println(F("t[s]"));
-
-  // divisionsmark and text X-axis
-  int xDivisionMark[xCountDivisionMark] = {25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275};
-  const char* xDivisionText[xCountDivisionText] = {" 0 ", " 60", "120", "180", "240", "300"};
-
-  for (i = 0; i < xCountDivisionMark; i++) {
-    tft.drawLine(xDivisionMark[i], 186, xDivisionMark[i], 188, BLACK);      // draw division mark X-axis
-  }
-
-  for (i = 0; i < xCountDivisionText; i++) {
-    tft.setCursor(xDivisionMark[2 * i] - 8, 191);
-    tft.setTextColor(BLACK);  tft.setTextSize(1);
-    tft.println(xDivisionText[i]);
-  }
-
-
-  // divisionsmark and text Y-axis
-  int yDivisionMark[yCountDivisionMark] = {30, 56, 82, 108, 134, 160, 186};
-  const char* yDivisionText[yCountDivisionText] = {"300", "250", "200", "150", "100", " 50"};
-
-  for (i = 0; i < yCountDivisionMark; i++) {
-    tft.drawLine(23, yDivisionMark[i], 25, yDivisionMark[i], BLACK);      // draw division mark X-axis
-  }
-
-  for (i = 0; i < yCountDivisionText; i++) {
-    tft.setCursor(3, yDivisionMark[i] - 3);
-    tft.setTextColor(BLACK);  tft.setTextSize(1);
-    tft.println(yDivisionText[i]);
-  }
-}
-
 
