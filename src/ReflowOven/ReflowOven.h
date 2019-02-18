@@ -1,5 +1,5 @@
-#ifndef REFLOWHOMESCREEN_H
-#define REFLOWHOMESCREEN_H
+#ifndef REFLOWOVEN_H
+#define REFLOWOVEN_H
 
 // ******************************
 // Define the hardware: Original(ST7781 TFT) / my setup (SPFD5408 TFT)
@@ -91,5 +91,5 @@
 
 // ******************************
 
-#endif // REFLOWHOMESCREEN_H
+#endif // REFLOWOVEN_H
 
