@@ -25,7 +25,6 @@ Display display;
 TouchButton touchbutton;
 MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
 
-TouchButton::ButtonId touchedButton = TouchButton::noButton;
 TouchButton::ButtonId prevButton = TouchButton::noButton;
 TouchButton::ButtonId actualInputSelection = TouchButton::buttonTemp;
 
@@ -58,6 +57,7 @@ Setpoint SollTempPoints[6] ={
   {240,183}
 };
 
+void evaluateButton(TouchButton::ButtonId touchedButton);
 
 void setup(void) {
     // initialize serial communication
@@ -160,209 +160,137 @@ void loop(void) {
         timeToMeasure = false;
     }
 
-    touchedButton = touchbutton.getTouchedButton(display.getActualScreen());
+    TouchButton::ButtonId touchedButton = touchbutton.getTouchedButton(display.getActualScreen());
+    evaluateButton(touchedButton);
 
-    // limit the pressure force
-    if (touchedButton != TouchButton::noButton) {
-        //to block buttonSollTemp and buttonSettings during reflow process
-        if (isStarted && (touchedButton == TouchButton::buttonSollTemp || touchedButton == TouchButton::buttonSettings)) {
-            touchedButton = TouchButton::noButton;
-            Serial.println(F("Locked -> noAction"));
-        }
-        //to block buttonSollTemp and buttonSettings before press reset
-        if (isFinish && (touchedButton == TouchButton::buttonSollTemp || touchedButton == TouchButton::buttonSettings)) {
-            touchedButton = TouchButton::noButton;
-            Serial.println(F("Locked -> noAction"));
-        }
-
-        if (prevButton != touchedButton) {
-
-            switch (display.getActualScreen()) {
-                case Display::homeScreen:
-                    if (touchedButton == TouchButton::buttonSollTemp) {
-                        display.drawSollTempScreen(SollTempPoints);
-                    }
-
-                    if (touchedButton == TouchButton::buttonStartStopReset) {
-
-                        if (isStarted == false && isFinish == false) {  // starts reflow process
-                            isStarted = true;
-                            calcSollLine();
-                        }
-                        else {                // reset reflow process
-                            isStarted = false;
-                            heater = false;
-                            digitalWrite(heaterPin, LOW);
-                            isFinish = false;
-
-                            timeCounter = 0;
-                            preHeatTime = 12;
-
-                            // clear istTempArray
-                            for (i = 0; i < 301; i++) {
-                                istTemp[i] = 0;
-                            }
-                        }
-                        display.drawHomeScreen(isStarted, isFinish, SollTempPoints);
-                        touchedButton = TouchButton::noButton;
-                    }
-
-                    if (touchedButton == TouchButton::buttonSettings) {
-                        //Serial.println("buttonSettings touched");
-                        display.drawSettingsScreen();
-                    }
-                    break;
-                case Display::sollTempScreen:
-                    if (touchedButton == TouchButton::buttonBack) {
-                        // Serial.println("buttonBack touched");
-                        display.drawHomeScreen(isStarted, isFinish, SollTempPoints);
-                    }
-                    if (touchedButton == TouchButton::buttonP1) {
-                        //Serial.println("buttonP1 touched");
-                        selectedTempPoint = 1;
-                        display.drawTempInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
-                    }
-                    if (touchedButton == TouchButton::buttonP2) {
-                        //Serial.println("buttonP2 touched");
-                        selectedTempPoint = 2;
-                        display.drawTempInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
-                    }
-                    if (touchedButton == TouchButton::buttonP3) {
-                        //Serial.println("buttonP3 touched");
-                        selectedTempPoint = 3;
-                        display.drawTempInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
-                    }
-                    if (touchedButton == TouchButton::buttonP4) {
-                        //Serial.println("buttonP4 touched");
-                        selectedTempPoint = 4;
-                        display.drawTempInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
-                    }
-                    if (touchedButton == TouchButton::buttonP5) {
-                        //Serial.println("buttonP5 touched");
-                        selectedTempPoint = 5;
-                        display.drawTempInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
-                    }
-                    break;
-                case Display::tempInputScreen:
-                    if (touchedButton == TouchButton::button0) {
-                        //Serial.println("button0 touched");
-                        selectedTempPointValue = selectedTempPointValue * 10;
-                        display.drawTempPointValueScreen(selectedTempPointValue);
-
-                    }
-                    if (touchedButton == TouchButton::button1) {
-                        //Serial.println("button1 touched");
-                        selectedTempPointValue = selectedTempPointValue * 10 + 1;
-                        display.drawTempPointValueScreen(selectedTempPointValue);
-                        //
-                    }
-                    if (touchedButton == TouchButton::button2) {
-                        //Serial.println("button2 touched");
-                        selectedTempPointValue = selectedTempPointValue * 10 + 2;
-                        display.drawTempPointValueScreen(selectedTempPointValue);
-                        //
-                    }
-                    if (touchedButton == TouchButton::button3) {
-                        //Serial.println("button3 touched");
-                        selectedTempPointValue = selectedTempPointValue * 10 + 3;
-                        display.drawTempPointValueScreen(selectedTempPointValue);
-                        //
-                    }
-                    if (touchedButton == TouchButton::button4) {
-                        //Serial.println("button4 touched");
-                        selectedTempPointValue = selectedTempPointValue * 10 + 4;
-                        display.drawTempPointValueScreen(selectedTempPointValue);
-                        //
-                    }
-                    if (touchedButton == TouchButton::button5) {
-                        //Serial.println("button5 touched");
-                        selectedTempPointValue = selectedTempPointValue * 10 + 5;
-                        display.drawTempPointValueScreen(selectedTempPointValue);
-                        //
-                    }
-                    if (touchedButton == TouchButton::button6) {
-                        //Serial.println("button6 touched");
-                        selectedTempPointValue = selectedTempPointValue * 10 + 6;
-                        display.drawTempPointValueScreen(selectedTempPointValue);
-                        //
-                    }
-                    if (touchedButton == TouchButton::button7) {
-                        //Serial.println("button7 touched");
-                        selectedTempPointValue = selectedTempPointValue * 10 + 7;
-                        display.drawTempPointValueScreen(selectedTempPointValue);
-                        //
-                    }
-                    if (touchedButton == TouchButton::button8) {
-                        //Serial.println("button8 touched");
-                        selectedTempPointValue = selectedTempPointValue * 10 + 8;
-                        display.drawTempPointValueScreen(selectedTempPointValue);
-                        //
-                    }
-                    if (touchedButton == TouchButton::button9) {
-                        //Serial.println("button9 touched");
-                        selectedTempPointValue = selectedTempPointValue * 10 + 9;
-                        display.drawTempPointValueScreen(selectedTempPointValue);
-                        //
-                    }
-                    if (touchedButton == TouchButton::buttonDel) {
-                        //Serial.println("buttonDel touched");
-                        selectedTempPointValue = 0;
-                        display.drawTempPointValueScreen(selectedTempPointValue);
-                        //
-                    }
-                    if (touchedButton == TouchButton::buttonOK) {
-                        //Serial.println("buttonOK touched");
-
-                        if (actualInputSelection == TouchButton::buttonTime) {
-                            if (selectedTempPointValue < 0) selectedTempPointValue = 0;
-                            if (selectedTempPointValue > 300) selectedTempPointValue = 300;
-
-                            SollTempPoints[selectedTempPoint].t = selectedTempPointValue;
-                            // EEPROM.update(selectedTempPoint * 2, SollTempPoints[selectedTempPoint].t);    // update the EEPROM
-                        }
-
-                        else {
-                            if (selectedTempPointValue < 0) selectedTempPointValue = 0;
-                            if (selectedTempPointValue > 280) selectedTempPointValue = 280;
-
-                            SollTempPoints[selectedTempPoint].T = selectedTempPointValue;
-                            //EEPROM.update(selectedTempPoint * 2 + 1, SollTempPoints[selectedTempPoint].T);  // update the EEPROM
-                        }
-
-                        display.drawSollTempScreen(SollTempPoints);
-                    }
-
-                    if (touchedButton == TouchButton::buttonTemp) {
-                        //Serial.println("buttonTemp touched");
-                        actualInputSelection = TouchButton::buttonTemp;
-                        display.drawTempInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
-                    }
-                    if (touchedButton == TouchButton::buttonTime) {
-                        //Serial.println("buttonTime touched");
-                        actualInputSelection = TouchButton::buttonTime;
-                        display.drawTempInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
-                    }
-
-                    touchedButton = TouchButton::noButton;
-                    break;
-
-                case Display::settingsScreen:
-                    if (touchedButton == TouchButton::buttonBack) {
-                        //Serial.println("buttonBack touched");
-                        display.drawHomeScreen(isStarted, isFinish, SollTempPoints);
-                    }
-                    break;
-
-                case Display::noChange:
-                    break;
-                default:
-                    break;
-            }
-        }
-    }
-    prevButton = touchedButton;
     delay(50);
 }
+
+void evaluateButton(TouchButton::ButtonId touchedButton) {
+    if ((touchedButton != TouchButton::noButton) && (prevButton != touchedButton)) {   // is button pressed?
+        switch (touchedButton) {
+            case TouchButton::buttonSollTemp:
+                if (!isStarted && !isFinish) {
+                    display.drawSollTempScreen(SollTempPoints);
+                } else {
+                    //to block buttonSollTemp and buttonSettings during reflow process and before press reset
+                    Serial.println(F("Locked -> noAction"));
+                }
+                break;
+
+            case TouchButton::buttonStartStopReset:
+                if (isStarted == false && isFinish == false) {  // starts reflow process
+                    isStarted = true;
+                    calcSollLine();
+                }
+                else {                // reset reflow process
+                    isStarted = false;
+                    heater = false;
+                    digitalWrite(heaterPin, LOW);
+                    isFinish = false;
+
+                    timeCounter = 0;
+                    preHeatTime = 12;
+
+                    // clear istTempArray
+                    for (i = 0; i < 301; i++) {
+                        istTemp[i] = 0;
+                    }
+                }
+                display.drawHomeScreen(isStarted, isFinish, SollTempPoints);
+                break;
+
+            case TouchButton::buttonSettings:
+                if (!isStarted && !isFinish) {
+                    //Serial.println("buttonSettings touched");
+                    display.drawSettingsScreen();
+                }
+                else {
+                    //to block buttonSollTemp and buttonSettings during reflow process and before press reset
+                    Serial.println(F("Locked -> noAction"));
+                }
+                break;
+
+            case TouchButton::buttonBack:
+                // Display::sollTempScreen or Display::settingsScreen
+                // Serial.println("buttonBack touched");
+                display.drawHomeScreen(isStarted, isFinish, SollTempPoints);
+                break;
+
+            case TouchButton::buttonP1:
+            case TouchButton::buttonP2:
+            case TouchButton::buttonP3:
+            case TouchButton::buttonP4:
+            case TouchButton::buttonP5:
+                //Serial.println("buttonP1-P5 touched");
+                selectedTempPoint = 1 + static_cast<uint8_t>(touchedButton - TouchButton::buttonP1);
+                display.drawTempInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
+                break;
+
+            case TouchButton::button0:
+            case TouchButton::button1:
+            case TouchButton::button2:
+            case TouchButton::button3:
+            case TouchButton::button4:
+            case TouchButton::button5:
+            case TouchButton::button6:
+            case TouchButton::button7:
+            case TouchButton::button8:
+            case TouchButton::button9:
+                //Serial.println("button0-button9 touched");
+                if (selectedTempPointValue < 1000) {
+                    selectedTempPointValue = selectedTempPointValue * 10 + static_cast<uint8_t>(touchedButton - TouchButton::button0);
+                    display.drawTempPointValueScreen(selectedTempPointValue);
+                }
+                break;
+
+            case TouchButton::buttonDel:
+                //Serial.println("buttonDel touched");
+                selectedTempPointValue = selectedTempPointValue / 10;
+                display.drawTempPointValueScreen(selectedTempPointValue);
+                break;
+
+            case TouchButton::buttonOK:
+                //Serial.println("buttonOK touched");
+                if (actualInputSelection == TouchButton::buttonTime) {
+                    if (selectedTempPointValue < 0) selectedTempPointValue = 0;
+                    if (selectedTempPointValue > 300) selectedTempPointValue = 300;
+
+                    SollTempPoints[selectedTempPoint].t = selectedTempPointValue;
+                    // EEPROM.update(selectedTempPoint * 2, SollTempPoints[selectedTempPoint].t);    // update the EEPROM
+                }
+
+                else {
+                    if (selectedTempPointValue < 0) selectedTempPointValue = 0;
+                    if (selectedTempPointValue > 280) selectedTempPointValue = 280;
+
+                    SollTempPoints[selectedTempPoint].T = selectedTempPointValue;
+                    //EEPROM.update(selectedTempPoint * 2 + 1, SollTempPoints[selectedTempPoint].T);  // update the EEPROM
+                }
+
+                display.drawSollTempScreen(SollTempPoints);
+                break;
+
+            case TouchButton::buttonTemp:
+                //Serial.println("buttonTemp touched");
+                actualInputSelection = TouchButton::buttonTemp;
+                display.drawTempInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
+                break;
+
+            case TouchButton::buttonTime:
+                //Serial.println("buttonTime touched");
+                actualInputSelection = TouchButton::buttonTime;
+                display.drawTempInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    prevButton = touchedButton;
+}
+
 
 /* This function calculate the temperature points of the soll-temperatur line with the five soll-temperature points
 
