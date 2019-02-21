@@ -55,7 +55,7 @@ TouchButton::ButtonId TouchButton::getTouchedButton(Display::screen currentScree
     uint16_t y = map(p.x, TS_MINX, TS_MAXX, 240, 0);
 
     // if touch event
-    if (p.z > MINPRESSURE || p.z < MAXPRESSURE) {
+    if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
         Serial.print(F("Touch: "));
         Serial.print(x, DEC);
         Serial.print(F(", "));
