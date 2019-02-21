@@ -39,6 +39,9 @@
     <ClInclude Include="TouchButton.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ProcessState.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SWTFT.cpp">

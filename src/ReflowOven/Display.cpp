@@ -34,37 +34,42 @@ void Display::begin() {
     tft.setRotation(ROTATION);
 }
 
-void Display::drawHomeScreen(bool isStarted, bool isFinish, Setpoint SollTempPoints[]) {
+void Display::drawHomeScreen(ProcessState processState, Setpoint SollTempPoints[]) {
     actualScreen = homeScreen;
 
-    tft.fillScreen(WHITE);
+    if (processState == ProcessState::Finished) {
+        tft.fillRect(0, 200, tft.width(), tft.height() - 200, WHITE);
+    } else {
+        tft.fillScreen(WHITE);
+    }
     tft.drawLine(0, 200, tft.width() - 1, 200, BLACK);
     tft.drawLine(106, 201, 106, tft.height() - 1, BLACK);
     tft.drawLine(213, 201, 213, tft.height() - 1, BLACK);
 
-    tft.setCursor(5, 213);
-    tft.setTextColor(BLACK);  tft.setTextSize(2);
-    tft.println(F("Settings"));
+    if (processState == ProcessState::Ready) {
+        tft.setCursor(5, 213);
+        tft.setTextColor(BLACK);  tft.setTextSize(2);
+        tft.println(F("Settings"));
+        
+        tft.setCursor(238, 213);
+        tft.setTextColor(BLACK);  tft.setTextSize(2);
+        tft.println(F("About"));
+    }
 
     tft.setCursor(128, 213);
     tft.setTextColor(BLACK);  tft.setTextSize(2);
-
-    Serial.println(isStarted);
-    Serial.println(isFinish);
-
-    if (isStarted == true && isFinish == false) {   //during reflow process
-        tft.println(F("Stop"));
-    }
-    else if (isStarted == false && isFinish == true) {   //end of reflow process
-        tft.println(F("Reset"));
-    }
-    else {
+    if (processState == ProcessState::Ready) {
+        Serial.println(F("Ready"));
         tft.println(F("Start"));
     }
-
-    tft.setCursor(238, 213);
-    tft.setTextColor(BLACK);  tft.setTextSize(2);
-    tft.println(F("About"));
+    else if (processState == ProcessState::Running) {
+        Serial.println(F("Running"));
+        tft.println(F("Stop"));
+    }
+    else {
+        Serial.println(F("Finished"));
+        tft.println(F("Reset"));
+    }
 
     tft.drawLine(270, 15, 280, 15, BLUE);     // Label soll
     tft.drawLine(270, 16, 280, 16, BLUE);
@@ -92,12 +97,8 @@ void Display::drawRemainingTime(uint16_t remainingTime) {
     }
 }
 
-void Display::drawIstTemp(uint16_t istTemp[]) {
-    for (uint16_t i = 0; i < 301; i++) {
-        if (istTemp[i] > 0) {
-            tft.drawPixel(int16_t(i * 250.0 / 300 + 25), int16_t(186 - istTemp[i] * 156.0 / 300), RED);
-        }
-    }
+void Display::drawIstTemp(uint16_t time, uint16_t temperature) {
+    tft.drawPixel(int16_t(time * 250.0 / 300 + 25), int16_t(186 - temperature * 156.0 / 300), RED);
 }
 
 void Display::drawActualTemp(float actTemp, bool heater) {
