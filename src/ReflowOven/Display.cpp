@@ -35,6 +35,8 @@ void Display::begin() {
 }
 
 void Display::drawHomeScreen(bool isStarted, bool isFinish, Setpoint SollTempPoints[]) {
+    actualScreen = homeScreen;
+
     tft.fillScreen(WHITE);
     tft.drawLine(0, 200, tft.width() - 1, 200, BLACK);
     tft.drawLine(106, 201, 106, tft.height() - 1, BLACK);
@@ -78,7 +80,6 @@ void Display::drawHomeScreen(bool isStarted, bool isFinish, Setpoint SollTempPoi
 
     drawChartAxis(SollTempPoints);
     drawSollLine(BLUE, false, SollTempPoints);
-    actualScreen = homeScreen;
 }
 
 void Display::drawRemainingTime(uint16_t remainingTime) {
@@ -113,6 +114,8 @@ void Display::drawActualTemp(float actTemp, bool heater) {
 }
 
 void Display::drawSettingsScreen(void) {
+    actualScreen = settingsScreen;
+
     tft.fillScreen(WHITE);
 
     tft.drawLine(0, 200, 54, 200, BLACK);
@@ -134,8 +137,6 @@ void Display::drawSettingsScreen(void) {
     tft.println(F("Roman Scheuss &"));
     tft.setCursor(10, 150);
     tft.println(F("Marco Graf"));
-
-    actualScreen = settingsScreen;
 }
 
 void Display::drawTempPointValueScreen(int16_t value) {
@@ -146,6 +147,8 @@ void Display::drawTempPointValueScreen(int16_t value) {
 }
 
 void Display::drawTempInputScreen(bool isTempSelected, uint8_t selectedTempPoint, uint16_t &selectedTempPointValue, Setpoint SollTempPoints[]) {
+    actualScreen = tempInputScreen;
+
     int counter = 1;
     tft.fillScreen(WHITE);
 
@@ -200,11 +203,11 @@ void Display::drawTempInputScreen(bool isTempSelected, uint8_t selectedTempPoint
     tft.println(F("Time"));
 
     drawTempPointValueScreen(selectedTempPointValue);
-
-    actualScreen = tempInputScreen;
 }
 
 void Display::drawSollTempScreen(Setpoint SollTempPoints[]) {
+    actualScreen = sollTempScreen;
+
     tft.fillScreen(WHITE);
     tft.drawLine(0, 200, tft.width() - 1, 200, BLACK);
 
@@ -238,7 +241,6 @@ void Display::drawSollTempScreen(Setpoint SollTempPoints[]) {
     drawChartAxis(SollTempPoints);
     drawSollLine(BLUE, true, SollTempPoints);
     drawArrow(12, 220);
-    actualScreen = sollTempScreen;
 }
 
 void Display::drawErrorScreen(String message) {
@@ -253,63 +255,22 @@ Display::screen Display::getActualScreen() {
 }
 
 void Display::drawSollLine(uint16_t color, boolean drawIndicators, Setpoint SollTempPoints[]) {
+    static const uint8_t NUM_OF_SETPOINTS = 6;
     int16_t x1, x2, y1, y2;
 
-    x1 = int16_t(SollTempPoints[0].t * 25 / 30.0 + xOffsetChart);
-    y1 = int16_t(yOffsetChart - SollTempPoints[0].T * 26 / 50.0);
-    x2 = int16_t(SollTempPoints[1].t * 25 / 30.0 + xOffsetChart);
-    y2 = int16_t(yOffsetChart - SollTempPoints[1].T * 26 / 50.0);
-    tft.drawLine(x1, y1, x2, y2, color);
+    for (uint8_t i=0; i<(NUM_OF_SETPOINTS - 1); i++) {
+        x1 = static_cast<int16_t>(SollTempPoints[i].t * 25 / 30.0 + xOffsetChart);
+        y1 = static_cast<int16_t>(yOffsetChart - SollTempPoints[i].T * 26 / 50.0);
+        x2 = static_cast<int16_t>(SollTempPoints[i+1].t * 25 / 30.0 + xOffsetChart);
+        y2 = static_cast<int16_t>(yOffsetChart - SollTempPoints[i+1].T * 26 / 50.0);
+        tft.drawLine(x1, y1, x2, y2, color);
 
-    x1 = int16_t(SollTempPoints[1].t * 25 / 30.0 + xOffsetChart);
-    y1 = int16_t(yOffsetChart - SollTempPoints[1].T * 26 / 50.0);
-    x2 = int16_t(SollTempPoints[2].t * 25 / 30.0 + xOffsetChart);
-    y2 = int16_t(yOffsetChart - SollTempPoints[2].T * 26 / 50.0);
-    tft.drawLine(x1, y1, x2, y2, color);
-
-    if (drawIndicators) {
-        tft.setCursor(x1 - 10, y1 - 20);
-        tft.setTextColor(BLACK);  tft.setTextSize(2);
-        tft.println(F("P1"));
-    }
-
-    x1 = int16_t(SollTempPoints[2].t * 25 / 30.0 + xOffsetChart);
-    y1 = int16_t(yOffsetChart - SollTempPoints[2].T * 26 / 50.0);
-    x2 = int16_t(SollTempPoints[3].t * 25 / 30.0 + xOffsetChart);
-    y2 = int16_t(yOffsetChart - SollTempPoints[3].T * 26 / 50.0);
-    tft.drawLine(x1, y1, x2, y2, color);
-
-    if (drawIndicators) {
-        tft.setCursor(x1 - 10, y1 - 20);
-        tft.setTextColor(BLACK);  tft.setTextSize(2);
-        tft.println(F("P2"));
-    }
-
-    x1 = int16_t(SollTempPoints[3].t * 25 / 30.0 + xOffsetChart);
-    y1 = int16_t(yOffsetChart - SollTempPoints[3].T * 26 / 50.0);
-    x2 = int16_t(SollTempPoints[4].t * 25 / 30.0 + xOffsetChart);
-    y2 = int16_t(yOffsetChart - SollTempPoints[4].T * 26 / 50.0);
-    tft.drawLine(x1, y1, x2, y2, color);
-
-    if (drawIndicators) {
-        tft.setCursor(x1 - 10, y1 - 20);
-        tft.setTextColor(BLACK);  tft.setTextSize(2);
-        tft.println(F("P3"));
-    }
-
-    x1 = int16_t(SollTempPoints[4].t * 25 / 30.0 + xOffsetChart);
-    y1 = int16_t(yOffsetChart - SollTempPoints[4].T * 26 / 50.0);
-    x2 = int16_t(SollTempPoints[5].t * 25 / 30.0 + xOffsetChart);
-    y2 = int16_t(yOffsetChart - SollTempPoints[5].T * 26 / 50.0);
-    tft.drawLine(x1, y1, x2, y2, color);
-
-    if (drawIndicators) {
-        tft.setCursor(x1 - 10, y1 - 20);
-        tft.setTextColor(BLACK);  tft.setTextSize(2);
-        tft.println(F("P4"));
-        tft.setCursor(x2 - 10, y2 - 20);
-        tft.setTextColor(BLACK);  tft.setTextSize(2);
-        tft.println(F("P5"));
+        if (drawIndicators) {
+            tft.setCursor(x2 - 10, y2 - 20);
+            tft.setTextColor(BLACK);  tft.setTextSize(2);
+            tft.print(F("P"));
+             tft.print(i+1);
+        }
     }
 }
 
