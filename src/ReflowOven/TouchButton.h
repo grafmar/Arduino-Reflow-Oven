@@ -5,7 +5,7 @@
 
 class TouchButton {
 public:
-    enum buttons {
+    enum ButtonId {
         buttonSollTemp,
         buttonSettings,
         buttonBack,
@@ -32,6 +32,20 @@ public:
         noButton
     };
 
+    struct TouchButtonElement {
+        Display::screen screen;
+        //uint16_t screen;
+        uint16_t x1;
+        uint16_t x2;
+        uint16_t y1;
+        uint16_t y2;
+        ButtonId buttonId;
+//        uint16_t buttonId;
+    };
+
+    static const uint16_t NUM_OF_TOUCH_BUTTONS = 24;
+    static const PROGMEM TouchButtonElement TOUCH_BUTTONS[NUM_OF_TOUCH_BUTTONS];
+
     TouchButton();
     ~TouchButton();
 
@@ -40,7 +54,7 @@ public:
     * @param currentScreen The Screen which is currently visible on the TFT.
     * @return the touched button. 'noButton' is returned if no button is pressed.
     */
-    TouchButton::buttons getTouchedButton(Display::screen currentScreen);
+    TouchButton::ButtonId getTouchedButton(Display::screen currentScreen);
 
 private:
 

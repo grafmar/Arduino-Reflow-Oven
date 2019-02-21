@@ -1,6 +1,35 @@
 #include "TouchButton.h"
 #include "ReflowOven.h"
 
+const PROGMEM TouchButton::TouchButtonElement TouchButton::TOUCH_BUTTONS[TouchButton::NUM_OF_TOUCH_BUTTONS] = {
+    { Display::homeScreen,        0, 106, 200, 240, TouchButton::buttonSollTemp },
+    { Display::homeScreen,      106, 213, 200, 240, TouchButton::buttonStartStopReset },
+    { Display::homeScreen,      213, 320, 200, 240, TouchButton::buttonSettings },
+    
+    { Display::sollTempScreen,    0,  54, 200, 240, TouchButton::buttonBack },
+    { Display::sollTempScreen,   54, 107, 200, 240, TouchButton::buttonP1 },
+    { Display::sollTempScreen,  107, 161, 200, 240, TouchButton::buttonP2 },
+    { Display::sollTempScreen,  161, 214, 200, 240, TouchButton::buttonP3 },
+    { Display::sollTempScreen,  214, 268, 200, 240, TouchButton::buttonP4 },
+    { Display::sollTempScreen,  268, 320, 200, 240, TouchButton::buttonP5 },
+
+    { Display::tempInputScreen,   0,  80,  90, 140, TouchButton::button1 },
+    { Display::tempInputScreen,  80, 160,  90, 140, TouchButton::button2 },
+    { Display::tempInputScreen, 160, 240,  90, 140, TouchButton::button3 },
+    { Display::tempInputScreen,   0,  80, 140, 190, TouchButton::button4 },
+    { Display::tempInputScreen,  80, 160, 140, 190, TouchButton::button5 },
+    { Display::tempInputScreen, 160, 240, 140, 190, TouchButton::button6 },
+    { Display::tempInputScreen,   0,  80, 190, 240, TouchButton::button7 },
+    { Display::tempInputScreen,  80, 160, 190, 240, TouchButton::button8 },
+    { Display::tempInputScreen, 160, 240, 190, 240, TouchButton::button9 },
+    { Display::tempInputScreen, 240, 320,  90, 140, TouchButton::buttonDel },
+    { Display::tempInputScreen, 240, 320, 140, 190, TouchButton::button0 },
+    { Display::tempInputScreen, 240, 320, 190, 240, TouchButton::buttonOK },
+    { Display::tempInputScreen,   0,  80,   0,  45, TouchButton::buttonTemp },
+    { Display::tempInputScreen,   0,  80,  45,  90, TouchButton::buttonTime },
+    
+    { Display::settingsScreen,    0,  54, 200, 240, TouchButton::buttonBack}
+};
 
 TouchButton::TouchButton() :
     // For better pressure precision, we need to know the resistance
@@ -10,11 +39,10 @@ TouchButton::TouchButton() :
 {
 }
 
-
 TouchButton::~TouchButton() {
 }
 
-TouchButton::buttons TouchButton::getTouchedButton(Display::screen currentScreen) {
+TouchButton::ButtonId TouchButton::getTouchedButton(Display::screen currentScreen) {
     // get touched point
     digitalWrite(13, HIGH);
     TSPoint p = ts.getPoint();
@@ -26,114 +54,29 @@ TouchButton::buttons TouchButton::getTouchedButton(Display::screen currentScreen
     uint16_t x = map(p.y, TS_MINY, TS_MAXY, 0, 320);
     uint16_t y = map(p.x, TS_MINX, TS_MAXX, 240, 0);
 
-    if (p.z < MINPRESSURE || p.z > MAXPRESSURE) {
-        return noButton;
+    // if touch event
+    if (p.z > MINPRESSURE || p.z < MAXPRESSURE) {
+        Serial.print(F("Touch: "));
+        Serial.print(x, DEC);
+        Serial.print(F(", "));
+        Serial.println(y, DEC);
+
+        for (uint16_t i=0; i < NUM_OF_TOUCH_BUTTONS; i++) {
+            TouchButtonElement actualTouchButton;
+            memcpy_P(&actualTouchButton, &TOUCH_BUTTONS[i], sizeof(actualTouchButton));
+            if (actualTouchButton.screen == currentScreen) {
+                if ((x > actualTouchButton.x1)
+                    && (x < actualTouchButton.x2)
+                    && (y > actualTouchButton.y1)
+                    && (y < actualTouchButton.y2)) {
+                
+                    return actualTouchButton.buttonId;
+                }
+            }
+        }
     }
-    Serial.print(F("Touch: "));
-    Serial.print(x, DEC);
-    Serial.print(F(", "));
-    Serial.println(y, DEC);
 
-    switch (currentScreen) {
-        case Display::homeScreen:
-            if (x < 106 && x > 0 && y < 240 && y > 200) {
-                return buttonSollTemp;
-            }
-            if (x < 213 && x > 106 && y < 240 && y > 200) {
-                return buttonStartStopReset;
-            }
-            if (x < 320 && x > 213 && y < 240 && y > 200) {
-                return buttonSettings;
-            }
-            else {
-                return noButton;
-            }
-
-        case Display::sollTempScreen:
-            if (x < 54 && x > 0 && y < 240 && y > 200) {
-                return buttonBack;
-            }
-            if (x < 107 && x > 54 && y < 240 && y > 200) {
-                return buttonP1;
-            }
-            if (x < 161 && x > 107 && y < 240 && y > 200) {
-                return buttonP2;
-            }
-            if (x < 214 && x > 161 && y < 240 && y > 200) {
-                return buttonP3;
-            }
-            if (x < 268 && x > 214 && y < 240 && y > 200) {
-                return buttonP4;
-            }
-            if (x < 320 && x > 268 && y < 240 && y > 200) {
-                return buttonP5;
-            }
-            else {
-                return noButton;
-            }
-
-        case Display::tempInputScreen:
-            if (x < 80 && x > 0 && y < 140 && y > 90) {
-                return button1;
-            }
-            if (x < 160 && x > 80 && y < 140 && y > 90) {
-                return button2;
-            }
-            if (x < 240 && x > 160 && y < 140 && y > 90) {
-                return button3;
-            }
-
-            if (x < 80 && x > 0 && y < 190 && y > 140) {
-                return button4;
-            }
-            if (x < 160 && x > 80 && y < 190 && y > 140) {
-                return button5;
-            }
-            if (x < 240 && x > 160 && y < 190 && y > 140) {
-                return button6;
-            }
-
-            if (x < 80 && x > 0 && y < 240 && y > 190) {
-                return button7;
-            }
-            if (x < 160 && x > 80 && y < 240 && y > 190) {
-                return button8;
-            }
-            if (x < 240 && x > 160 && y < 240 && y > 190) {
-                return button9;
-            }
-
-            if (x < 320 && x > 240 && y < 140 && y > 90) {
-                return buttonDel;
-            }
-            if (x < 320 && x > 240 && y < 190 && y > 140) {
-                return button0;
-            }
-            if (x < 320 && x > 240 && y < 240 && y > 190) {
-                return buttonOK;
-            }
-            if (x < 80 && x > 0 && y < 45 && y > 0) {
-                return buttonTemp;
-            }
-            if (x < 80 && x > 0 && y < 90 && y > 45) {
-                return buttonTime;
-            }
-
-            else {
-                return noButton;
-            }
-
-        case Display::settingsScreen:
-            if (x < 54 && x > 0 && y < 240 && y > 200) {
-                return buttonBack;
-            }
-
-            else {
-                return noButton;
-            }
-
-        default:
-            return noButton;
-    }
+    // No touch event, or no button not recognized
+    return noButton;
 }
 
