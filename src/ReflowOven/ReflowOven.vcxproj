@@ -108,6 +108,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Display.h" />
+    <ClInclude Include="ProcessState.h" />
     <ClInclude Include="Setpoint.h" />
     <ClInclude Include="ReflowOven.h">
       <FileType>CppCode</FileType>

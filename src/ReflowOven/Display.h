@@ -2,6 +2,7 @@
 #define DISPLAY_H
 #include <Arduino.h>
 #include <string.h>
+#include "ProcessState.h"
 #include "Setpoint.h"
 
 
@@ -30,11 +31,10 @@ public:
 
     /**
     * This function draws the home screen
-    * @param isStarted true if started
-    * @param isFinish true if finished
+    * @param processState the actual state
     * @param SollTempPoints[] the array of setpoints.
     */
-    void drawHomeScreen(bool isStarted, bool isFinish, Setpoint SollTempPoints[]);
+    void drawHomeScreen(ProcessState processState, Setpoint SollTempPoints[]);
 
     /**
     * This function draws the time during preheat.
@@ -44,9 +44,10 @@ public:
 
     /**
     * This funtion draws the ist-temperature line on the screen.
-    * @param istTemp ist-temperatur array with the stored temperatur values.
+    * @param timeCounter time of the measured temperature to display.
+    * @param isTemperature actual measured temperature to display.
     */
-    void drawIstTemp(uint16_t istTemp[]);
+    void drawIstTemp(uint16_t time, uint16_t temperature);
 
     /**
     * This function draws the actual measured temperature in the middle top.

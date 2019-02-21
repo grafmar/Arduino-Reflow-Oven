@@ -9,6 +9,7 @@
 
 #include "ReflowOven.h"
 #include "Display.h"
+#include "ProcessState.h"
 #include "Setpoint.h"
 #include "TouchButton.h"
 
@@ -34,18 +35,14 @@ uint8_t selectedTempPoint = 0;
 uint32_t lastMeasurementMS;
 boolean timeToMeasure = false;
 
-boolean isStarted = false;
-boolean isFinish = false;
+ProcessState processState = ProcessState::Ready;
+
 boolean heater = false;
 
 int i, j;
-uint16_t istTemp[301];
 uint16_t sollTempLine[301];
 uint16_t timeCounter = 0;
 uint16_t preHeatTime = 12;
-
-double temp;
-
 
 // define default temperature
 Setpoint SollTempPoints[6] ={
@@ -64,11 +61,6 @@ void setup(void) {
     Serial.begin(115200);
     Serial.println(F("Startup... Ready"));
 
-    // clear istTemp array
-    for (i = 0; i < 301; i++) {
-        istTemp[i] = 0;
-    }
-
     // initialize heater pin
     pinMode(heaterPin, OUTPUT);
 
@@ -76,7 +68,7 @@ void setup(void) {
     display.begin();
 
     // draw homescreen
-    display.drawHomeScreen(isStarted, isFinish, SollTempPoints);
+    display.drawHomeScreen(processState, SollTempPoints);
     delay(1000);
 
     //for(i = 0; i < 12; i++){
@@ -98,9 +90,10 @@ void loop(void) {
     }
 
     if (timeToMeasure) {
+        timeToMeasure = false;
 
         // read actual temperature
-        temp = thermocouple.readCelsius();
+        double temp = thermocouple.readCelsius();
 
         // safety deadlock--!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         if ((temp > 300) || isnan(temp)) {
@@ -115,8 +108,7 @@ void loop(void) {
         }
         //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-        if (isStarted == true) {
-
+        if (processState == ProcessState::Running) {
             // to heat up during preheat time
             if (preHeatTime > 0) {
                 heater = true;
@@ -127,10 +119,10 @@ void loop(void) {
 
             // normal heat up
             else {
-                istTemp[timeCounter] = uint16_t(temp);      // store istTemp in istTempArray
+                uint16_t isTemperature = uint16_t(temp);
 
                 // to turn on and off the heater if necessary
-                if (istTemp[timeCounter] < sollTempLine[timeCounter]) {
+                if (isTemperature < sollTempLine[timeCounter]) {
                     heater = true;
                     digitalWrite(heaterPin, HIGH);
                 }
@@ -142,13 +134,12 @@ void loop(void) {
                 // to terminate a reflow process
                 if (timeCounter >= SollTempPoints[5].t) {
                     timeCounter = 0;
-                    isStarted = false;
-                    isFinish = true;
+                    processState = ProcessState::Finished;
                     heater = false;
                     digitalWrite(heaterPin, LOW);
-                    display.drawHomeScreen(isStarted, isFinish, SollTempPoints);
+                    display.drawHomeScreen(processState, SollTempPoints);
                 }
-                display.drawIstTemp(istTemp);
+                display.drawIstTemp(timeCounter, isTemperature);
                 timeCounter++;
             }
         }
@@ -156,8 +147,6 @@ void loop(void) {
         if ((display.getActualScreen() != Display::tempInputScreen) && (display.getActualScreen() != Display::settingsScreen)) {
             display.drawActualTemp(temp, heater);
         }
-
-        timeToMeasure = false;
     }
 
     TouchButton::ButtonId touchedButton = touchbutton.getTouchedButton(display.getActualScreen());
@@ -170,7 +159,7 @@ void evaluateButton(TouchButton::ButtonId touchedButton) {
     if ((touchedButton != TouchButton::noButton) && (prevButton != touchedButton)) {   // is button pressed?
         switch (touchedButton) {
             case TouchButton::buttonSollTemp:
-                if (!isStarted && !isFinish) {
+                if (processState == ProcessState::Ready) {
                     display.drawSollTempScreen(SollTempPoints);
                 } else {
                     //to block buttonSollTemp and buttonSettings during reflow process and before press reset
@@ -179,29 +168,24 @@ void evaluateButton(TouchButton::ButtonId touchedButton) {
                 break;
 
             case TouchButton::buttonStartStopReset:
-                if (isStarted == false && isFinish == false) {  // starts reflow process
-                    isStarted = true;
+                if (processState == ProcessState::Ready) {
+                    // start reflow process
+                    processState = ProcessState::Running;
                     calcSollLine();
                 }
-                else {                // reset reflow process
-                    isStarted = false;
+                else {
+                    // reset reflow process
+                    processState = ProcessState::Ready;
                     heater = false;
                     digitalWrite(heaterPin, LOW);
-                    isFinish = false;
-
                     timeCounter = 0;
                     preHeatTime = 12;
-
-                    // clear istTempArray
-                    for (i = 0; i < 301; i++) {
-                        istTemp[i] = 0;
-                    }
                 }
-                display.drawHomeScreen(isStarted, isFinish, SollTempPoints);
+                display.drawHomeScreen(processState, SollTempPoints);
                 break;
 
             case TouchButton::buttonSettings:
-                if (!isStarted && !isFinish) {
+                if (processState == ProcessState::Ready) {
                     //Serial.println("buttonSettings touched");
                     display.drawSettingsScreen();
                 }
@@ -214,7 +198,7 @@ void evaluateButton(TouchButton::ButtonId touchedButton) {
             case TouchButton::buttonBack:
                 // Display::sollTempScreen or Display::settingsScreen
                 // Serial.println("buttonBack touched");
-                display.drawHomeScreen(isStarted, isFinish, SollTempPoints);
+                display.drawHomeScreen(processState, SollTempPoints);
                 break;
 
             case TouchButton::buttonP1:
