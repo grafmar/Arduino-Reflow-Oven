@@ -25,9 +25,9 @@ Display display;
 TouchButton touchbutton;
 MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
 
-TouchButton::buttons touchedButton = TouchButton::noButton;
-TouchButton::buttons prevButton = TouchButton::noButton;
-TouchButton::buttons actualInputSelection = TouchButton::buttonTemp;
+TouchButton::ButtonId touchedButton = TouchButton::noButton;
+TouchButton::ButtonId prevButton = TouchButton::noButton;
+TouchButton::ButtonId actualInputSelection = TouchButton::buttonTemp;
 
 uint16_t selectedTempPointValue = 0;
 uint8_t selectedTempPoint = 0;
