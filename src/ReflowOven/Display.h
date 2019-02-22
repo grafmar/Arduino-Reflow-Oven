@@ -32,9 +32,9 @@ public:
     /**
     * This function draws the home screen
     * @param processState the actual state
-    * @param SollTempPoints[] the array of setpoints.
+    * @param TemperatureSetpoints[] the array of setpoints.
     */
-    void drawHomeScreen(ProcessState processState, Setpoint SollTempPoints[]);
+    void drawHomeScreen(ProcessState processState, Setpoint TemperatureSetpoints[]);
 
     /**
     * This function draws the time during preheat.
@@ -43,11 +43,11 @@ public:
     void drawRemainingTime(uint16_t remainingTime);
 
     /**
-    * This funtion draws the ist-temperature line on the screen.
+    * This funtion draws the actual temperature line on the screen.
     * @param timeCounter time of the measured temperature to display.
     * @param isTemperature actual measured temperature to display.
     */
-    void drawIstTemp(uint16_t time, uint16_t temperature);
+    void drawActualTemperatue(uint16_t time, uint16_t temperature);
 
     /**
     * This function draws the actual measured temperature in the middle top.
@@ -73,15 +73,15 @@ public:
     * @param isTempSelected True if actual input selection is temperature.
     * @param selectedTempPoint selected setpoint index.
     * @param selectedTempPointValue the value of the selected setpoint.
-    * @param SollTempPoints[] the array of setpoints.
+    * @param TemperatureSetpoints[] the array of setpoints.
     */
-    void drawTempInputScreen(bool isTempSelected, uint8_t selectedTempPoint, uint16_t &selectedTempPointValue, Setpoint SollTempPoints[]);
+    void drawTempInputScreen(bool isTempSelected, uint8_t selectedTempPoint, uint16_t &selectedTempPointValue, Setpoint TemperatureSetpoints[]);
 
     /**
     * This function draws the soll-temperature screen.
-    * @param SollTempPoints[] the array of setpoints.
+    * @param TemperatureSetpoints[] the array of setpoints.
     */
-    void drawSollTempScreen(Setpoint SollTempPoints[]);
+    void drawSollTempScreen(Setpoint TemperatureSetpoints[]);
 
 
     /**
@@ -101,15 +101,15 @@ private:
     * This function draws the soll-temperatur line in a existing chart.
     * @param color The color of the line.
     * @param drawIndicators if true, indicators are drawn.
-    * @param SollTempPoints[] the array of setpoints.
+    * @param TemperatureSetpoints[] the array of setpoints.
     */
-    void drawSollLine(uint16_t color, boolean drawIndicators, Setpoint SollTempPoints[]);
+    void drawSollLine(uint16_t color, boolean drawIndicators, Setpoint TemperatureSetpoints[]);
 
     /**
     * This function draw the axis of the chart in a existing screen.
-    * @param SollTempPoints[] the array of setpoints.
+    * @param TemperatureSetpoints[] the array of setpoints.
     */
-    void drawChartAxis(Setpoint SollTempPoints[]);
+    void drawChartAxis(Setpoint TemperatureSetpoints[]);
 
     /**
     * Draws an arrow at the given positions.

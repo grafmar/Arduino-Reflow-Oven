@@ -39,13 +39,12 @@ ProcessState processState = ProcessState::Ready;
 
 boolean heater = false;
 
-int i, j;
-uint16_t sollTempLine[301];
 uint16_t timeCounter = 0;
 uint16_t preHeatTime = 12;
 
 // define default temperature
-Setpoint SollTempPoints[6] ={
+const uint8_t NUM_OF_SETPOINTS = 6;
+Setpoint TemperatureSetpoints[6] = {
   {0,25},
   {30,100},
   {120,150},
@@ -68,15 +67,15 @@ void setup(void) {
     display.begin();
 
     // draw homescreen
-    display.drawHomeScreen(processState, SollTempPoints);
+    display.drawHomeScreen(processState, TemperatureSetpoints);
     delay(1000);
 
     //for(i = 0; i < 12; i++){
     // Serial.println(EEPROM.read(i));
     //}
     // for (i = 0; i < 6; i++) {
-    // EEPROM.write(2 * i, SollTempPoints[i].t);
-    // EEPROM.write(2 * i + 1, SollTempPoints[i].T);
+    // EEPROM.write(2 * i, TemperatureSetpoints[i].time);
+    // EEPROM.write(2 * i + 1, TemperatureSetpoints[i].temperature);
     // }
 
     lastMeasurementMS = millis();
@@ -122,8 +121,8 @@ void loop(void) {
                 uint16_t isTemperature = uint16_t(temp);
 
                 // to turn on and off the heater if necessary
-                if (isTemperature < sollTempLine[timeCounter]) {
-                    heater = true;
+                if (isTemperature < calcSetpointValue(timeCounter)) {
+                        heater = true;
                     digitalWrite(heaterPin, HIGH);
                 }
                 else {
@@ -132,14 +131,15 @@ void loop(void) {
                 }
 
                 // to terminate a reflow process
-                if (timeCounter >= SollTempPoints[5].t) {
+                if (timeCounter >= TemperatureSetpoints[5].time) {
                     timeCounter = 0;
                     processState = ProcessState::Finished;
                     heater = false;
                     digitalWrite(heaterPin, LOW);
-                    display.drawHomeScreen(processState, SollTempPoints);
+                    display.drawHomeScreen(processState, TemperatureSetpoints);
                 }
-                display.drawIstTemp(timeCounter, isTemperature);
+                display.drawActualTemperatue(timeCounter, isTemperature);
+
                 timeCounter++;
             }
         }
@@ -160,7 +160,7 @@ void evaluateButton(TouchButton::ButtonId touchedButton) {
         switch (touchedButton) {
             case TouchButton::buttonSollTemp:
                 if (processState == ProcessState::Ready) {
-                    display.drawSollTempScreen(SollTempPoints);
+                    display.drawSollTempScreen(TemperatureSetpoints);
                 } else {
                     //to block buttonSollTemp and buttonSettings during reflow process and before press reset
                     Serial.println(F("Locked -> noAction"));
@@ -171,7 +171,6 @@ void evaluateButton(TouchButton::ButtonId touchedButton) {
                 if (processState == ProcessState::Ready) {
                     // start reflow process
                     processState = ProcessState::Running;
-                    calcSollLine();
                 }
                 else {
                     // reset reflow process
@@ -181,7 +180,7 @@ void evaluateButton(TouchButton::ButtonId touchedButton) {
                     timeCounter = 0;
                     preHeatTime = 12;
                 }
-                display.drawHomeScreen(processState, SollTempPoints);
+                display.drawHomeScreen(processState, TemperatureSetpoints);
                 break;
 
             case TouchButton::buttonSettings:
@@ -198,7 +197,7 @@ void evaluateButton(TouchButton::ButtonId touchedButton) {
             case TouchButton::buttonBack:
                 // Display::sollTempScreen or Display::settingsScreen
                 // Serial.println("buttonBack touched");
-                display.drawHomeScreen(processState, SollTempPoints);
+                display.drawHomeScreen(processState, TemperatureSetpoints);
                 break;
 
             case TouchButton::buttonP1:
@@ -208,7 +207,7 @@ void evaluateButton(TouchButton::ButtonId touchedButton) {
             case TouchButton::buttonP5:
                 //Serial.println("buttonP1-P5 touched");
                 selectedTempPoint = 1 + static_cast<uint8_t>(touchedButton - TouchButton::buttonP1);
-                display.drawTempInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
+                display.drawTempInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue, TemperatureSetpoints);
                 break;
 
             case TouchButton::button0:
@@ -240,31 +239,31 @@ void evaluateButton(TouchButton::ButtonId touchedButton) {
                     if (selectedTempPointValue < 0) selectedTempPointValue = 0;
                     if (selectedTempPointValue > 300) selectedTempPointValue = 300;
 
-                    SollTempPoints[selectedTempPoint].t = selectedTempPointValue;
-                    // EEPROM.update(selectedTempPoint * 2, SollTempPoints[selectedTempPoint].t);    // update the EEPROM
+                    TemperatureSetpoints[selectedTempPoint].time = selectedTempPointValue;
+                    // EEPROM.update(selectedTempPoint * 2, TemperatureSetpoints[selectedTempPoint].time);    // update the EEPROM
                 }
 
                 else {
                     if (selectedTempPointValue < 0) selectedTempPointValue = 0;
                     if (selectedTempPointValue > 280) selectedTempPointValue = 280;
 
-                    SollTempPoints[selectedTempPoint].T = selectedTempPointValue;
-                    //EEPROM.update(selectedTempPoint * 2 + 1, SollTempPoints[selectedTempPoint].T);  // update the EEPROM
+                    TemperatureSetpoints[selectedTempPoint].temperature = selectedTempPointValue;
+                    //EEPROM.update(selectedTempPoint * 2 + 1, TemperatureSetpoints[selectedTempPoint].temperature);  // update the EEPROM
                 }
 
-                display.drawSollTempScreen(SollTempPoints);
+                display.drawSollTempScreen(TemperatureSetpoints);
                 break;
 
             case TouchButton::buttonTemp:
                 //Serial.println("buttonTemp touched");
                 actualInputSelection = TouchButton::buttonTemp;
-                display.drawTempInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
+                display.drawTempInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue, TemperatureSetpoints);
                 break;
 
             case TouchButton::buttonTime:
                 //Serial.println("buttonTime touched");
                 actualInputSelection = TouchButton::buttonTime;
-                display.drawTempInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue, SollTempPoints);
+                display.drawTempInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue, TemperatureSetpoints);
                 break;
 
             default:
@@ -276,45 +275,21 @@ void evaluateButton(TouchButton::ButtonId touchedButton) {
 }
 
 
-/* This function calculate the temperature points of the soll-temperatur line with the five soll-temperature points
-
-   Input:
-    - no inputs
-
-    Return:
-    - no return
+/**
+* This function calculates the interpolated temperature setpoint at the given time.
+* @param time the time value to calculate the temperatue setpoint of.
+* @return the calculated temperature setpoint.
 */
-void calcSollLine(void) {
-    float m = 0;      //gain
-
-    //section one (point0 to point1)
-    m = (float(SollTempPoints[1].T - SollTempPoints[0].T)) / (SollTempPoints[1].t - SollTempPoints[0].t);
-    for (int i = 0; i <= SollTempPoints[1].t; i++) {
-        sollTempLine[i] = m * i + SollTempPoints[1].t;
+uint16_t calcSetpointValue(uint16_t time) {
+    for (uint8_t i=1; i < NUM_OF_SETPOINTS; i++) {
+        if (time <= TemperatureSetpoints[i].time) {
+            //Serial.print(i);
+            //Serial.print(", ");
+            //Serial.print(time);
+            //Serial.print(", ");
+            //Serial.println(map(time, TemperatureSetpoints[i - 1].time, TemperatureSetpoints[i].time, TemperatureSetpoints[i - 1].temperature, TemperatureSetpoints[i].temperature));
+            return map(time, TemperatureSetpoints[i-1].time, TemperatureSetpoints[i].time, TemperatureSetpoints[i-1].temperature, TemperatureSetpoints[i].temperature);
+        }
     }
-
-    //section two (point1 to point2)
-    m = (float(SollTempPoints[2].T - SollTempPoints[1].T)) / (SollTempPoints[2].t - SollTempPoints[1].t);
-    for (int i = (SollTempPoints[1].t + 1); i <= SollTempPoints[2].t; i++) {
-        sollTempLine[i] = m * (i - SollTempPoints[1].t) + SollTempPoints[1].T;
-    }
-
-    //section three (point2 to point3)
-    m = (float(SollTempPoints[3].T - SollTempPoints[2].T)) / (SollTempPoints[3].t - SollTempPoints[2].t);
-    for (int i = (SollTempPoints[2].t + 1); i <= SollTempPoints[3].t; i++) {
-        sollTempLine[i] = m * (i - SollTempPoints[2].t) + SollTempPoints[2].T;
-    }
-
-    ///section four (point3 to point4)
-    m = (float(SollTempPoints[4].T - SollTempPoints[3].T)) / (SollTempPoints[4].t - SollTempPoints[3].t);
-    for (int i = (SollTempPoints[3].t + 1); i <= SollTempPoints[4].t; i++) {
-        sollTempLine[i] = m * (i - SollTempPoints[3].t) + SollTempPoints[3].T;
-    }
-
-    ///section five (point4 to point5)
-    m = (float(SollTempPoints[5].T - SollTempPoints[4].T)) / (SollTempPoints[5].t - SollTempPoints[4].t);
-    for (int i = (SollTempPoints[4].t + 1); i <= SollTempPoints[5].t; i++) {
-        sollTempLine[i] = m * (i - SollTempPoints[4].t) + SollTempPoints[4].T;
-    }
+    return 0; // just in case we get here
 }
-
