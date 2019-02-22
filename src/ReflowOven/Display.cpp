@@ -17,7 +17,8 @@ TftSpfd5408 tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
 #endif // USE_ST7781
 
 Display::Display() :
-    actualScreen(homeScreen)
+    actualScreen(homeScreen),
+    lastChartTemperature(0U)
 {
 }
 
@@ -97,8 +98,19 @@ void Display::drawRemainingTime(uint16_t remainingTime) {
     }
 }
 
-void Display::drawActualTemperatue(uint16_t time, uint16_t temperature) {
-    tft.drawPixel(int16_t(time * 250.0 / 300 + 25), int16_t(186 - temperature * 156.0 / 300), RED);
+void Display::drawActualTemperatueChart(uint16_t time, uint16_t temperature) {
+    uint16_t lastTime = time - 1;
+    if (time == 0) {
+        lastChartTemperature = temperature;
+        lastTime = 0;
+    }
+    int16_t x1Coord = int16_t(lastTime * 250.0 / 300 + 25);
+    int16_t y1Coord = int16_t(186 - lastChartTemperature * 156.0 / 300);
+    int16_t x2Coord = int16_t(time * 250.0 / 300 + 25);
+    int16_t y2Coord = int16_t(186 - temperature * 156.0 / 300);
+    // tft.drawPixel(int16_t(time * 250.0 / 300 + 25), int16_t(186 - temperature * 156.0 / 300), RED);
+    tft.drawLine(x1Coord, y1Coord, x2Coord, y2Coord, RED);
+    lastChartTemperature = temperature;
 }
 
 void Display::drawActualTemp(float actTemp, bool heater) {
@@ -132,7 +144,11 @@ void Display::drawSettingsScreen(void) {
 
     tft.setTextSize(2);
     tft.setCursor(10, 75);
-    tft.println(F("Version V1.1"));
+    tft.print(F("Version V"));
+    tft.print(VERSION_MAJOR);
+    tft.print(F("."));
+    tft.println(VERSION_MINOR);
+
 
     tft.setCursor(10, 125);
     tft.println(F("Roman Scheuss &"));

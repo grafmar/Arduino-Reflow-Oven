@@ -58,7 +58,10 @@ void evaluateButton(TouchButton::ButtonId touchedButton);
 void setup(void) {
     // initialize serial communication
     Serial.begin(115200);
-    Serial.println(F("Startup... Ready"));
+    Serial.print(F("ReflowOven Version V"));
+    Serial.print(VERSION_MAJOR);
+    Serial.print(F("."));
+    Serial.println(VERSION_MINOR);
 
     // initialize heater pin
     pinMode(heaterPin, OUTPUT);
@@ -138,7 +141,7 @@ void loop(void) {
                     digitalWrite(heaterPin, LOW);
                     display.drawHomeScreen(processState, TemperatureSetpoints);
                 }
-                display.drawActualTemperatue(timeCounter, isTemperature);
+                display.drawActualTemperatueChart(timeCounter, isTemperature);
 
                 timeCounter++;
             }

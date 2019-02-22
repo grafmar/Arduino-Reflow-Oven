@@ -1,6 +1,9 @@
 #ifndef REFLOWOVEN_H
 #define REFLOWOVEN_H
 
+#define VERSION_MAJOR 1
+#define VERSION_MINOR 2
+
 // ******************************
 // Define the hardware: Original(ST7781 TFT) / my setup (SPFD5408 TFT)
 //#define USE_ST7781

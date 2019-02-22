@@ -47,7 +47,7 @@ public:
     * @param timeCounter time of the measured temperature to display.
     * @param isTemperature actual measured temperature to display.
     */
-    void drawActualTemperatue(uint16_t time, uint16_t temperature);
+    void drawActualTemperatueChart(uint16_t time, uint16_t temperature);
 
     /**
     * This function draws the actual measured temperature in the middle top.
@@ -120,6 +120,7 @@ private:
 
     // members
     screen actualScreen;
+    uint16_t lastChartTemperature;
 };
 
 #endif // DISPLAY_H
