@@ -34,7 +34,7 @@ void Display::begin() {
     tft.setRotation(ROTATION);
 }
 
-void Display::drawHomeScreen(ProcessState processState, Setpoint SollTempPoints[]) {
+void Display::drawHomeScreen(ProcessState processState, Setpoint TemperatureSetpoints[]) {
     actualScreen = homeScreen;
 
     if (processState == ProcessState::Finished) {
@@ -83,8 +83,8 @@ void Display::drawHomeScreen(ProcessState processState, Setpoint SollTempPoints[
     tft.setTextColor(RED);  tft.setTextSize(1);
     tft.println(F("Ist"));
 
-    drawChartAxis(SollTempPoints);
-    drawSollLine(BLUE, false, SollTempPoints);
+    drawChartAxis(TemperatureSetpoints);
+    drawSollLine(BLUE, false, TemperatureSetpoints);
 }
 
 void Display::drawRemainingTime(uint16_t remainingTime) {
@@ -97,7 +97,7 @@ void Display::drawRemainingTime(uint16_t remainingTime) {
     }
 }
 
-void Display::drawIstTemp(uint16_t time, uint16_t temperature) {
+void Display::drawActualTemperatue(uint16_t time, uint16_t temperature) {
     tft.drawPixel(int16_t(time * 250.0 / 300 + 25), int16_t(186 - temperature * 156.0 / 300), RED);
 }
 
@@ -147,7 +147,7 @@ void Display::drawTempPointValueScreen(int16_t value) {
     tft.println(value);
 }
 
-void Display::drawTempInputScreen(bool isTempSelected, uint8_t selectedTempPoint, uint16_t &selectedTempPointValue, Setpoint SollTempPoints[]) {
+void Display::drawTempInputScreen(bool isTempSelected, uint8_t selectedTempPoint, uint16_t &selectedTempPointValue, Setpoint TemperatureSetpoints[]) {
     actualScreen = tempInputScreen;
 
     int counter = 1;
@@ -188,11 +188,11 @@ void Display::drawTempInputScreen(bool isTempSelected, uint8_t selectedTempPoint
 
     if (isTempSelected) {
         tft.fillRect(0, 0, 80, 45, GREEN);
-        selectedTempPointValue = SollTempPoints[selectedTempPoint].T;
+        selectedTempPointValue = TemperatureSetpoints[selectedTempPoint].temperature;
     }
     else {
         tft.fillRect(0, 46, 80, 44, GREEN);
-        selectedTempPointValue = SollTempPoints[selectedTempPoint].t;
+        selectedTempPointValue = TemperatureSetpoints[selectedTempPoint].time;
     }
 
     tft.setCursor(5, 15);
@@ -206,7 +206,7 @@ void Display::drawTempInputScreen(bool isTempSelected, uint8_t selectedTempPoint
     drawTempPointValueScreen(selectedTempPointValue);
 }
 
-void Display::drawSollTempScreen(Setpoint SollTempPoints[]) {
+void Display::drawSollTempScreen(Setpoint TemperatureSetpoints[]) {
     actualScreen = sollTempScreen;
 
     tft.fillScreen(WHITE);
@@ -239,8 +239,8 @@ void Display::drawSollTempScreen(Setpoint SollTempPoints[]) {
     tft.setTextColor(BLACK);  tft.setTextSize(2);
     tft.println(F("P5"));
 
-    drawChartAxis(SollTempPoints);
-    drawSollLine(BLUE, true, SollTempPoints);
+    drawChartAxis(TemperatureSetpoints);
+    drawSollLine(BLUE, true, TemperatureSetpoints);
     drawArrow(12, 220);
 }
 
@@ -255,15 +255,15 @@ Display::screen Display::getActualScreen() {
     return actualScreen;
 }
 
-void Display::drawSollLine(uint16_t color, boolean drawIndicators, Setpoint SollTempPoints[]) {
+void Display::drawSollLine(uint16_t color, boolean drawIndicators, Setpoint TemperatureSetpoints[]) {
     static const uint8_t NUM_OF_SETPOINTS = 6;
     int16_t x1, x2, y1, y2;
 
     for (uint8_t i=0; i<(NUM_OF_SETPOINTS - 1); i++) {
-        x1 = static_cast<int16_t>(SollTempPoints[i].t * 25 / 30.0 + xOffsetChart);
-        y1 = static_cast<int16_t>(yOffsetChart - SollTempPoints[i].T * 26 / 50.0);
-        x2 = static_cast<int16_t>(SollTempPoints[i+1].t * 25 / 30.0 + xOffsetChart);
-        y2 = static_cast<int16_t>(yOffsetChart - SollTempPoints[i+1].T * 26 / 50.0);
+        x1 = static_cast<int16_t>(TemperatureSetpoints[i].time * 25 / 30.0 + xOffsetChart);
+        y1 = static_cast<int16_t>(yOffsetChart - TemperatureSetpoints[i].temperature * 26 / 50.0);
+        x2 = static_cast<int16_t>(TemperatureSetpoints[i+1].time * 25 / 30.0 + xOffsetChart);
+        y2 = static_cast<int16_t>(yOffsetChart - TemperatureSetpoints[i+1].temperature * 26 / 50.0);
         tft.drawLine(x1, y1, x2, y2, color);
 
         if (drawIndicators) {
@@ -275,7 +275,7 @@ void Display::drawSollLine(uint16_t color, boolean drawIndicators, Setpoint Soll
     }
 }
 
-void Display::drawChartAxis(Setpoint SollTempPoints[]) {
+void Display::drawChartAxis(Setpoint TemperatureSetpoints[]) {
     tft.drawLine(25, 20, 25, 188, BLACK);       // vertical axis
     tft.drawLine(25, 20, 23, 22, BLACK);       // Y arrow
     tft.drawLine(25, 20, 27, 22, BLACK);       // Y arrow
