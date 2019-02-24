@@ -6,9 +6,6 @@
 #define yCountDivisionMark 7
 #define yCountDivisionText 6
 
-#define xOffsetChart 25
-#define yOffsetChart 186
-
 // define the tft-object with the right library
 #ifdef USE_ST7781
 SWTFT tft;
@@ -18,7 +15,8 @@ TftSpfd5408 tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
 
 Display::Display() :
     actualScreen(homeScreen),
-    lastChartTemperature(0U)
+    lastChartTemperature(0U),
+    maxTimeInChart(300U)
 {
 }
 
@@ -72,18 +70,17 @@ void Display::drawHomeScreen(ProcessState processState, Setpoint TemperatureSetp
         tft.println(F("Reset"));
     }
 
-    tft.drawLine(270, 15, 280, 15, BLUE);     // Label soll
-    tft.drawLine(270, 16, 280, 16, BLUE);
+    tft.drawRect(270, 16, 10, 2, BLUE);     // Label soll
     tft.setCursor(282, 13);
     tft.setTextColor(BLUE);  tft.setTextSize(1);
     tft.println(F("Soll"));
 
-    tft.drawLine(270, 25, 280, 25, RED);     // Label ist
-    tft.drawLine(270, 26, 280, 26, RED);
+    tft.drawRect(270, 26, 10, 2, RED);     // Label ist
     tft.setCursor(282, 23);
     tft.setTextColor(RED);  tft.setTextSize(1);
     tft.println(F("Ist"));
 
+    maxTimeInChart = TemperatureSetpoints[5].time;
     drawChartAxis(TemperatureSetpoints);
     drawSollLine(BLUE, false, TemperatureSetpoints);
 }
@@ -104,23 +101,16 @@ void Display::drawActualTemperatueChart(uint16_t time, uint16_t temperature) {
         lastChartTemperature = temperature;
         lastTime = 0;
     }
-    int16_t x1Coord = int16_t(lastTime * 250.0 / 300 + 25);
-    int16_t y1Coord = int16_t(186 - lastChartTemperature * 156.0 / 300);
-    int16_t x2Coord = int16_t(time * 250.0 / 300 + 25);
-    int16_t y2Coord = int16_t(186 - temperature * 156.0 / 300);
-    // tft.drawPixel(int16_t(time * 250.0 / 300 + 25), int16_t(186 - temperature * 156.0 / 300), RED);
+    const int16_t x1Coord = static_cast<int16_t>(map(lastTime, 0, maxTimeInChart, CHART_AREA_X1, CHART_AREA_X2));
+    const int16_t x2Coord = static_cast<int16_t>(map(time, 0, maxTimeInChart, CHART_AREA_X1, CHART_AREA_X2));
+    const int16_t y1Coord = static_cast<int16_t>(map(lastChartTemperature, 0, MAX_TEMPERATURE, CHART_AREA_Y1, CHART_AREA_Y2));
+    const int16_t y2Coord = static_cast<int16_t>(map(temperature, 0, MAX_TEMPERATURE, CHART_AREA_Y1, CHART_AREA_Y2));
     tft.drawLine(x1Coord, y1Coord, x2Coord, y2Coord, RED);
     lastChartTemperature = temperature;
 }
 
 void Display::drawActualTemp(float actTemp, bool heater) {
-    if (heater == true) {
-        tft.fillRect(130, 0, 75, 25, RED);
-    }
-    else {
-        tft.fillRect(130, 0, 75, 25, WHITE);
-    }
-
+    tft.fillRect(130, 0, 75, 25, ((heater == true) ? RED : WHITE));
     tft.setCursor(130, 5);
     tft.setTextColor(BLACK);  tft.setTextSize(2);
     tft.println(actTemp);
@@ -255,6 +245,7 @@ void Display::drawSollTempScreen(Setpoint TemperatureSetpoints[]) {
     tft.setTextColor(BLACK);  tft.setTextSize(2);
     tft.println(F("P5"));
 
+    maxTimeInChart = TemperatureSetpoints[5].time;
     drawChartAxis(TemperatureSetpoints);
     drawSollLine(BLUE, true, TemperatureSetpoints);
     drawArrow(12, 220);
@@ -276,63 +267,64 @@ void Display::drawSollLine(uint16_t color, boolean drawIndicators, Setpoint Temp
     int16_t x1, x2, y1, y2;
 
     for (uint8_t i=0; i<(NUM_OF_SETPOINTS - 1); i++) {
-        x1 = static_cast<int16_t>(TemperatureSetpoints[i].time * 25 / 30.0 + xOffsetChart);
-        y1 = static_cast<int16_t>(yOffsetChart - TemperatureSetpoints[i].temperature * 26 / 50.0);
-        x2 = static_cast<int16_t>(TemperatureSetpoints[i+1].time * 25 / 30.0 + xOffsetChart);
-        y2 = static_cast<int16_t>(yOffsetChart - TemperatureSetpoints[i+1].temperature * 26 / 50.0);
-        tft.drawLine(x1, y1, x2, y2, color);
+        const int16_t x1Coord = static_cast<int16_t>(map(TemperatureSetpoints[i].time, 0, maxTimeInChart, CHART_AREA_X1, CHART_AREA_X2));
+        const int16_t x2Coord = static_cast<int16_t>(map(TemperatureSetpoints[i + 1].time, 0, maxTimeInChart, CHART_AREA_X1, CHART_AREA_X2));
+        const int16_t y1Coord = static_cast<int16_t>(map(TemperatureSetpoints[i].temperature, 0, MAX_TEMPERATURE, CHART_AREA_Y1, CHART_AREA_Y2));
+        const int16_t y2Coord = static_cast<int16_t>(map(TemperatureSetpoints[i + 1].temperature, 0, MAX_TEMPERATURE, CHART_AREA_Y1, CHART_AREA_Y2));
+        tft.drawLine(x1Coord, y1Coord, x2Coord, y2Coord, color);
 
         if (drawIndicators) {
-            tft.setCursor(x2 - 10, y2 - 20);
-            tft.setTextColor(BLACK);  tft.setTextSize(2);
+            tft.setCursor(x2Coord - 5, y2Coord - 10);
+            tft.setTextColor(BLACK);  tft.setTextSize(1);
             tft.print(F("P"));
-             tft.print(i+1);
+            tft.println(i+1);
         }
     }
 }
 
 void Display::drawChartAxis(Setpoint TemperatureSetpoints[]) {
-    tft.drawLine(25, 20, 25, 188, BLACK);       // vertical axis
-    tft.drawLine(25, 20, 23, 22, BLACK);       // Y arrow
-    tft.drawLine(25, 20, 27, 22, BLACK);       // Y arrow
+    tft.drawLine(CHART_AREA_X1, 20, CHART_AREA_X1, CHART_AREA_Y1, BLACK);       // vertical axis
+    tft.drawLine(CHART_AREA_X1, 20, CHART_AREA_X1-2, 22, BLACK);       // Y arrow
+    tft.drawLine(CHART_AREA_X1, 20, CHART_AREA_X1+2, 22, BLACK);       // Y arrow
     tft.setCursor(18, 10);
     tft.setTextColor(BLACK);  tft.setTextSize(1);
     tft.println(F("T[C]"));
 
-    tft.drawLine(23, 186, 300, 186, BLACK);     // horizontal axis
-    tft.drawLine(298, 184, 300, 186, BLACK);     // X arrow
-    tft.drawLine(298, 188, 300, 186, BLACK);     // X arrow
+    tft.drawLine(CHART_AREA_X1, CHART_AREA_Y1, 300, CHART_AREA_Y1, BLACK);     // horizontal axis
+    tft.drawLine(298, CHART_AREA_Y1-2, 300, CHART_AREA_Y1, BLACK);     // X arrow
+    tft.drawLine(298, CHART_AREA_Y1+2, 300, CHART_AREA_Y1, BLACK);     // X arrow
     tft.setCursor(290, 175);
     tft.setTextColor(BLACK);  tft.setTextSize(1);
     tft.println(F("t[s]"));
 
     // divisionsmark and text X-axis
-    int xDivisionMark[xCountDivisionMark] ={ 25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275 };
-    const char* xDivisionText[xCountDivisionText] ={ " 0 ", " 60", "120", "180", "240", "300" };
-
-    for (uint16_t i = 0; i < xCountDivisionMark; i++) {
-        tft.drawLine(xDivisionMark[i], 186, xDivisionMark[i], 188, BLACK);      // draw division mark X-axis
-    }
-
-    for (uint16_t i = 0; i < xCountDivisionText; i++) {
-        tft.setCursor(xDivisionMark[2 * i] - 8, 191);
+    const uint16_t timeStep = 60U;
+    for (uint16_t time = 0; time <= maxTimeInChart; time+=timeStep) {
+        const int16_t xCoord = static_cast<int16_t>(map(time, 0, maxTimeInChart, CHART_AREA_X1, CHART_AREA_X2));
+        tft.drawLine(xCoord, CHART_AREA_Y1, xCoord, CHART_AREA_Y1 + 2, BLACK);      // draw division mark X-axis
+        char textBuffer[7];
+        sprintf(textBuffer, "%d", time);
+        tft.setCursor(xCoord - (strlen(textBuffer)*6)/2 + 1, 191);
         tft.setTextColor(BLACK);  tft.setTextSize(1);
-        tft.println(xDivisionText[i]);
-    }
+        tft.println(textBuffer);
 
+        // small marks
+        if ((time + timeStep/2) < maxTimeInChart) {
+            const int16_t xCoord = static_cast<int16_t>(map(time + timeStep / 2, 0, maxTimeInChart, CHART_AREA_X1, CHART_AREA_X2));
+            tft.drawLine(xCoord, CHART_AREA_Y1, xCoord, CHART_AREA_Y1 + 2, BLACK);      // draw division mark X-axis
+        }
+    }
 
     // divisionsmark and text Y-axis
-    int yDivisionMark[yCountDivisionMark] ={ 30, 56, 82, 108, 134, 160, 186 };
-    const char* yDivisionText[yCountDivisionText] ={ "300", "250", "200", "150", "100", " 50" };
-
-    for (uint16_t i = 0; i < yCountDivisionMark; i++) {
-        tft.drawLine(23, yDivisionMark[i], 25, yDivisionMark[i], BLACK);      // draw division mark X-axis
-    }
-
-    for (uint16_t i = 0; i < yCountDivisionText; i++) {
-        tft.setCursor(3, yDivisionMark[i] - 3);
+    const uint16_t temperatureStep = 50U;
+    for (uint16_t temperature = 0; temperature <= MAX_TEMPERATURE; temperature+=temperatureStep) {
+        const int16_t yCoord =  static_cast<int16_t>(map(temperature, 0, MAX_TEMPERATURE, CHART_AREA_Y1, CHART_AREA_Y2));
+        tft.drawLine(CHART_AREA_X1-2, yCoord, CHART_AREA_X1, yCoord, BLACK);      // draw division mark X-axis
+        tft.setCursor(3, yCoord - 3);
         tft.setTextColor(BLACK);  tft.setTextSize(1);
-        tft.println(yDivisionText[i]);
+        char textBuffer[5];
+        sprintf(textBuffer, "%3d", temperature);
+        tft.println(textBuffer);
     }
 }
 

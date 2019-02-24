@@ -118,9 +118,18 @@ private:
     */
     void drawArrow(int16_t x, int16_t y);
 
+    // constants
+    static const int16_t CHART_AREA_X1 = 25;
+    static const int16_t CHART_AREA_X2 = 275;
+    static const int16_t CHART_AREA_Y1 = 186;
+    static const int16_t CHART_AREA_Y2 = 30;
+    static const int16_t CHART_WIDTH = CHART_AREA_X2 - CHART_AREA_X1;
+    static const uint16_t MAX_TEMPERATURE = 300U;
+
     // members
     screen actualScreen;
     uint16_t lastChartTemperature;
+    uint16_t maxTimeInChart;
 };
 
 #endif // DISPLAY_H
