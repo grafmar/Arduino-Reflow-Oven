@@ -54,6 +54,7 @@ Setpoint TemperatureSetpoints[6] = {
 };
 
 void evaluateButton(TouchButton::ButtonId touchedButton);
+void shiftNeightbourSetpoints(uint8_t setpointIndex);
 
 void setup(void) {
     // initialize serial communication
@@ -223,35 +224,36 @@ void evaluateButton(TouchButton::ButtonId touchedButton) {
             case TouchButton::button7:
             case TouchButton::button8:
             case TouchButton::button9:
+            {
                 //Serial.println("button0-button9 touched");
-                if (selectedTempPointValue < 1000) {
-                    selectedTempPointValue = selectedTempPointValue * 10 + static_cast<uint8_t>(touchedButton - TouchButton::button0);
+                uint32_t value = selectedTempPointValue;
+                value = value * 10U + static_cast<uint8_t>(touchedButton - TouchButton::button0);
+
+                if (((value <= MAX_SETPOINT_TIME) && (actualInputSelection == TouchButton::buttonTime))  
+                    || ((value <= MAX_SETPOINT_TEMPERATURE) && (actualInputSelection == TouchButton::buttonTemp))) {
+
+                    selectedTempPointValue = static_cast<uint16_t>(value);
                     display.drawTempPointValueScreen(selectedTempPointValue);
                 }
                 break;
-
+            }
             case TouchButton::buttonDel:
                 //Serial.println("buttonDel touched");
-                selectedTempPointValue = selectedTempPointValue / 10;
+                selectedTempPointValue = selectedTempPointValue / 10U;
                 display.drawTempPointValueScreen(selectedTempPointValue);
                 break;
 
             case TouchButton::buttonOK:
                 //Serial.println("buttonOK touched");
                 if (actualInputSelection == TouchButton::buttonTime) {
-                    if (selectedTempPointValue < 0) selectedTempPointValue = 0;
-                    if (selectedTempPointValue > 300) selectedTempPointValue = 300;
-
+                    if (selectedTempPointValue < 1U) {
+                        selectedTempPointValue = 1U;
+                    }
                     TemperatureSetpoints[selectedTempPoint].time = selectedTempPointValue;
-                    // EEPROM.update(selectedTempPoint * 2, TemperatureSetpoints[selectedTempPoint].time);    // update the EEPROM
+                    shiftNeightbourSetpoints(selectedTempPoint);
                 }
-
                 else {
-                    if (selectedTempPointValue < 0) selectedTempPointValue = 0;
-                    if (selectedTempPointValue > 280) selectedTempPointValue = 280;
-
                     TemperatureSetpoints[selectedTempPoint].temperature = selectedTempPointValue;
-                    //EEPROM.update(selectedTempPoint * 2 + 1, TemperatureSetpoints[selectedTempPoint].temperature);  // update the EEPROM
                 }
 
                 display.drawSollTempScreen(TemperatureSetpoints);
@@ -295,4 +297,22 @@ uint16_t calcSetpointValue(uint16_t time) {
         }
     }
     return 0; // just in case we get here
+}
+
+
+/**
+* Shifts the time of the neighbouring setpoints so the time of the setpoints does not overrung each other (time will be in ascending order).
+* @param setpointIndex the index of the adjusted setpoint.
+*/
+void shiftNeightbourSetpoints(uint8_t setpointIndex) {
+    for (uint8_t i=setpointIndex; i > 0; i--) {
+        if (TemperatureSetpoints[i - 1].time > TemperatureSetpoints[i].time) {
+            TemperatureSetpoints[i - 1].time = TemperatureSetpoints[i].time;
+        }
+    }
+    for (uint8_t i=setpointIndex; i < NUM_OF_SETPOINTS-1; i++) {
+        if (TemperatureSetpoints[i + 1].time < TemperatureSetpoints[i].time) {
+            TemperatureSetpoints[i + 1].time = TemperatureSetpoints[i].time;
+        }
+    }
 }
