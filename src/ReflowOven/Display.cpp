@@ -146,7 +146,7 @@ void Display::drawSettingsScreen(void) {
     tft.println(F("Marco Graf"));
 }
 
-void Display::drawTempPointValueScreen(int16_t value) {
+void Display::drawTempPointValueScreen(uint16_t value) {
     tft.fillRect(81, 0, tft.width() - 1, 90, WHITE);
     tft.setCursor(100, 35);
     tft.setTextColor(BLACK);  tft.setTextSize(3);
@@ -298,7 +298,18 @@ void Display::drawChartAxis(Setpoint TemperatureSetpoints[]) {
     tft.println(F("t[s]"));
 
     // divisionsmark and text X-axis
-    const uint16_t timeStep = 60U;
+    //const uint16_t timeStep = 60U;
+    uint16_t minTimeStep = 1;
+    if (maxTimeInChart >= 3 * 1800U) {
+        minTimeStep = 1800U;
+    } else if (maxTimeInChart >= 3 * 600U) {
+        minTimeStep = 600U;
+    } else if (maxTimeInChart >= 3 * 60U) {
+        minTimeStep = 60U;
+    } else if (maxTimeInChart >= 3 * 10U) {
+        minTimeStep = 10U;
+    }
+    const uint16_t timeStep = (maxTimeInChart + (5U * minTimeStep - 1U)) / (5U * minTimeStep) * minTimeStep;
     for (uint16_t time = 0; time <= maxTimeInChart; time+=timeStep) {
         const int16_t xCoord = static_cast<int16_t>(map(time, 0, maxTimeInChart, CHART_AREA_X1, CHART_AREA_X2));
         tft.drawLine(xCoord, CHART_AREA_Y1, xCoord, CHART_AREA_Y1 + 2, BLACK);      // draw division mark X-axis

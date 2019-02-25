@@ -79,6 +79,10 @@
 // define heater pin
 #define heaterPin 19
 
+// ******************************
+// system definitons
+#define MAX_SETPOINT_TEMPERATURE 280
+#define MAX_SETPOINT_TIME UINT16_MAX
 
 // ******************************
 // display definitons

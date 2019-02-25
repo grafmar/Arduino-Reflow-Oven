@@ -66,7 +66,7 @@ public:
     * Draws the actual temperatue value on top of the screen.
     * @param value temperature value to display.
     */
-    void drawTempPointValueScreen(int16_t value);
+    void drawTempPointValueScreen(uint16_t value);
 
     /**
     * Draws the temperature input screen.
