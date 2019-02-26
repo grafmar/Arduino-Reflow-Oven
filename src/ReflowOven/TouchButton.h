@@ -6,9 +6,13 @@
 class TouchButton {
 public:
     enum ButtonId {
-        buttonSollTemp,
         buttonSettings,
+        buttonAboutInfo,
         buttonBack,
+        buttonEdit,
+        buttonLoad,
+        buttonSave,
+        buttonBackSettings,
         buttonP1,
         buttonP2,
         buttonP3,
@@ -43,7 +47,7 @@ public:
 //        uint16_t buttonId;
     };
 
-    static const uint16_t NUM_OF_TOUCH_BUTTONS = 24;
+    static const uint16_t NUM_OF_TOUCH_BUTTONS = 30;
     static const PROGMEM TouchButtonElement TOUCH_BUTTONS[NUM_OF_TOUCH_BUTTONS];
 
     TouchButton();

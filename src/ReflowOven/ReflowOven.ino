@@ -22,7 +22,10 @@
 
 
 // generate objects
-Display display;
+Setpoints setpoints;
+ProcessState processState = ProcessState::Ready;
+
+Display display(setpoints, processState);
 TouchButton touchbutton;
 MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
 
@@ -35,28 +38,24 @@ uint8_t selectedTempPoint = 0;
 uint32_t lastMeasurementMS;
 boolean timeToMeasure = false;
 
-ProcessState processState = ProcessState::Ready;
-
 boolean heater = false;
 
 uint16_t timeCounter = 0;
 uint16_t preHeatTime = 12;
 
-// define default temperature
-const uint8_t NUM_OF_SETPOINTS = 6;
-Setpoint TemperatureSetpoints[6] = {
-  {0,25},
-  {30,100},
-  {120,150},
-  {150,183},
-  {210,235},
-  {240,183}
-};
 
 void evaluateButton(TouchButton::ButtonId touchedButton);
 void shiftNeightbourSetpoints(uint8_t setpointIndex);
 
 void setup(void) {
+    // define default temperature setpoints
+    setpoints.sp[0] = { 0, 25 };
+    setpoints.sp[1] = { 30,100 };
+    setpoints.sp[2] = { 120,150 };
+    setpoints.sp[3] = { 150,183 };
+    setpoints.sp[4] = { 210,235 };
+    setpoints.sp[5] = { 240,183 };
+
     // initialize serial communication
     Serial.begin(115200);
     Serial.print(F("ReflowOven Version V"));
@@ -71,15 +70,15 @@ void setup(void) {
     display.begin();
 
     // draw homescreen
-    display.drawHomeScreen(processState, TemperatureSetpoints);
+    display.drawHomeScreen();
     delay(1000);
 
     //for(i = 0; i < 12; i++){
     // Serial.println(EEPROM.read(i));
     //}
     // for (i = 0; i < 6; i++) {
-    // EEPROM.write(2 * i, TemperatureSetpoints[i].time);
-    // EEPROM.write(2 * i + 1, TemperatureSetpoints[i].temperature);
+    // EEPROM.write(2 * i, setpoints.sp[i].time);
+    // EEPROM.write(2 * i + 1, setpoints.sp[i].temperature);
     // }
 
     lastMeasurementMS = millis();
@@ -135,12 +134,13 @@ void loop(void) {
                 }
 
                 // to terminate a reflow process
-                if (timeCounter >= TemperatureSetpoints[5].time) {
+                if (timeCounter >= setpoints.sp[5].time) {
                     timeCounter = 0;
                     processState = ProcessState::Finished;
+                    Serial.println(F("Finished"));
                     heater = false;
                     digitalWrite(heaterPin, LOW);
-                    display.drawHomeScreen(processState, TemperatureSetpoints);
+                    display.drawHomeScreen();
                 }
                 display.drawActualTemperatueChart(timeCounter, isTemperature);
 
@@ -148,7 +148,7 @@ void loop(void) {
             }
         }
 
-        if ((display.getActualScreen() != Display::tempInputScreen) && (display.getActualScreen() != Display::settingsScreen)) {
+        if ((display.getActualScreen() != Display::setpointInputScreen) && (display.getActualScreen() != Display::aboutInfoScreen)) {
             display.drawActualTemp(temp, heater);
         }
     }
@@ -162,11 +162,12 @@ void loop(void) {
 void evaluateButton(TouchButton::ButtonId touchedButton) {
     if ((touchedButton != TouchButton::noButton) && (prevButton != touchedButton)) {   // is button pressed?
         switch (touchedButton) {
-            case TouchButton::buttonSollTemp:
+            case TouchButton::buttonBackSettings:   // fall through
+            case TouchButton::buttonSettings:
                 if (processState == ProcessState::Ready) {
-                    display.drawSollTempScreen(TemperatureSetpoints);
+                    display.drawSettingsScreen();
                 } else {
-                    //to block buttonSollTemp and buttonSettings during reflow process and before press reset
+                    //to block buttonSettings and buttonAboutInfo during reflow process and before press reset
                     Serial.println(F("Locked -> noAction"));
                 }
                 break;
@@ -175,33 +176,47 @@ void evaluateButton(TouchButton::ButtonId touchedButton) {
                 if (processState == ProcessState::Ready) {
                     // start reflow process
                     processState = ProcessState::Running;
+                    Serial.println(F("Running"));
                 }
                 else {
                     // reset reflow process
                     processState = ProcessState::Ready;
+                    Serial.println(F("Ready"));
                     heater = false;
                     digitalWrite(heaterPin, LOW);
                     timeCounter = 0;
                     preHeatTime = 12;
                 }
-                display.drawHomeScreen(processState, TemperatureSetpoints);
+                display.drawHomeScreen();
                 break;
 
-            case TouchButton::buttonSettings:
+            case TouchButton::buttonAboutInfo:
                 if (processState == ProcessState::Ready) {
-                    //Serial.println("buttonSettings touched");
-                    display.drawSettingsScreen();
+                    //Serial.println("buttonAboutInfo touched");
+                    display.drawAboutInfoScreen();
                 }
                 else {
-                    //to block buttonSollTemp and buttonSettings during reflow process and before press reset
+                    //to block buttonSettings and buttonAboutInfo during reflow process and before press reset
                     Serial.println(F("Locked -> noAction"));
                 }
                 break;
 
             case TouchButton::buttonBack:
-                // Display::sollTempScreen or Display::settingsScreen
+                // Display::editSetpointsScreen or Display::aboutInfoScreen
                 // Serial.println("buttonBack touched");
-                display.drawHomeScreen(processState, TemperatureSetpoints);
+                display.drawHomeScreen();
+                break;
+
+            case TouchButton::buttonEdit:
+                display.drawEditSetpointsScreen();
+                break;
+
+            case TouchButton::buttonLoad:
+                display.drawLoadSetpointsScreen();
+                break;
+
+            case TouchButton::buttonSave:
+                display.drawSaveSetpointsScreen();
                 break;
 
             case TouchButton::buttonP1:
@@ -211,7 +226,7 @@ void evaluateButton(TouchButton::ButtonId touchedButton) {
             case TouchButton::buttonP5:
                 //Serial.println("buttonP1-P5 touched");
                 selectedTempPoint = 1 + static_cast<uint8_t>(touchedButton - TouchButton::buttonP1);
-                display.drawTempInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue, TemperatureSetpoints);
+                display.drawSetpointInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue);
                 break;
 
             case TouchButton::button0:
@@ -249,26 +264,26 @@ void evaluateButton(TouchButton::ButtonId touchedButton) {
                     if (selectedTempPointValue < 1U) {
                         selectedTempPointValue = 1U;
                     }
-                    TemperatureSetpoints[selectedTempPoint].time = selectedTempPointValue;
+                    setpoints.sp[selectedTempPoint].time = selectedTempPointValue;
                     shiftNeightbourSetpoints(selectedTempPoint);
                 }
                 else {
-                    TemperatureSetpoints[selectedTempPoint].temperature = selectedTempPointValue;
+                    setpoints.sp[selectedTempPoint].temperature = selectedTempPointValue;
                 }
 
-                display.drawSollTempScreen(TemperatureSetpoints);
+                display.drawEditSetpointsScreen();
                 break;
 
             case TouchButton::buttonTemp:
                 //Serial.println("buttonTemp touched");
                 actualInputSelection = TouchButton::buttonTemp;
-                display.drawTempInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue, TemperatureSetpoints);
+                display.drawSetpointInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue);
                 break;
 
             case TouchButton::buttonTime:
                 //Serial.println("buttonTime touched");
                 actualInputSelection = TouchButton::buttonTime;
-                display.drawTempInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue, TemperatureSetpoints);
+                display.drawSetpointInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue);
                 break;
 
             default:
@@ -286,14 +301,14 @@ void evaluateButton(TouchButton::ButtonId touchedButton) {
 * @return the calculated temperature setpoint.
 */
 uint16_t calcSetpointValue(uint16_t time) {
-    for (uint8_t i=1; i < NUM_OF_SETPOINTS; i++) {
-        if (time <= TemperatureSetpoints[i].time) {
+    for (uint8_t i=1; i < Setpoints::NUM_OF_SETPOINTS; i++) {
+        if (time <= setpoints.sp[i].time) {
             //Serial.print(i);
             //Serial.print(", ");
             //Serial.print(time);
             //Serial.print(", ");
-            //Serial.println(map(time, TemperatureSetpoints[i - 1].time, TemperatureSetpoints[i].time, TemperatureSetpoints[i - 1].temperature, TemperatureSetpoints[i].temperature));
-            return map(time, TemperatureSetpoints[i-1].time, TemperatureSetpoints[i].time, TemperatureSetpoints[i-1].temperature, TemperatureSetpoints[i].temperature);
+            //Serial.println(map(time, setpoints.sp[i - 1].time, setpoints.sp[i].time, setpoints.sp[i - 1].temperature, setpoints.sp[i].temperature));
+            return map(time, setpoints.sp[i-1].time, setpoints.sp[i].time, setpoints.sp[i-1].temperature, setpoints.sp[i].temperature);
         }
     }
     return 0; // just in case we get here
@@ -306,13 +321,13 @@ uint16_t calcSetpointValue(uint16_t time) {
 */
 void shiftNeightbourSetpoints(uint8_t setpointIndex) {
     for (uint8_t i=setpointIndex; i > 0; i--) {
-        if (TemperatureSetpoints[i - 1].time > TemperatureSetpoints[i].time) {
-            TemperatureSetpoints[i - 1].time = TemperatureSetpoints[i].time;
+        if (setpoints.sp[i - 1].time > setpoints.sp[i].time) {
+            setpoints.sp[i - 1].time = setpoints.sp[i].time;
         }
     }
-    for (uint8_t i=setpointIndex; i < NUM_OF_SETPOINTS-1; i++) {
-        if (TemperatureSetpoints[i + 1].time < TemperatureSetpoints[i].time) {
-            TemperatureSetpoints[i + 1].time = TemperatureSetpoints[i].time;
+    for (uint8_t i=setpointIndex; i < Setpoints::NUM_OF_SETPOINTS-1; i++) {
+        if (setpoints.sp[i + 1].time < setpoints.sp[i].time) {
+            setpoints.sp[i + 1].time = setpoints.sp[i].time;
         }
     }
 }

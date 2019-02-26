@@ -1,10 +1,42 @@
 #include "Display.h"
 #include "ReflowOven.h"
+#include "TouchButton.h"
 
 #define xCountDivisionMark 11
 #define xCountDivisionText 6
 #define yCountDivisionMark 7
 #define yCountDivisionText 6
+
+const char* const buttonText[] PROGMEM = {
+    ("Settings"),  // buttonSettings,
+    ("About"),     // buttonAboutInfo,
+    (""),          // buttonBack,
+    ("Edit"),      // buttonEdit,
+    ("Load"),      // buttonLoad,
+    ("Save"),      // buttonSave,
+    (""),          // buttonBackSettings,
+    ("P1"),        // buttonP1,
+    ("P2"),        // buttonP2,
+    ("P3"),        // buttonP3,
+    ("P4"),        // buttonP4,
+    ("P5"),        // buttonP5,
+    ("0"),         // button0,
+    ("1"),         // button1,
+    ("2"),         // button2,
+    ("3"),         // button3,
+    ("4"),         // button4,
+    ("5"),         // button5,
+    ("6"),         // button6,
+    ("7"),         // button7,
+    ("8"),         // button8,
+    ("9"),         // button9,
+    ("Del"),       // buttonDel,
+    ("OK"),        // buttonOK,
+    (""),          // buttonStartStopReset,
+    ("Time"),      // buttonTime,
+    ("Temp"),      // buttonTemp,
+    (""),          // noButton
+};
 
 // define the tft-object with the right library
 #ifdef USE_ST7781
@@ -13,7 +45,9 @@ SWTFT tft;
 TftSpfd5408 tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
 #endif // USE_ST7781
 
-Display::Display() :
+Display::Display(Setpoints& setpoints, ProcessState& processState) :
+    m_setpoints(setpoints),
+    m_processState(processState),
     actualScreen(homeScreen),
     lastChartTemperature(0U),
     maxTimeInChart(300U)
@@ -33,42 +67,15 @@ void Display::begin() {
     tft.setRotation(ROTATION);
 }
 
-void Display::drawHomeScreen(ProcessState processState, Setpoint TemperatureSetpoints[]) {
+void Display::drawHomeScreen() {
     actualScreen = homeScreen;
 
-    if (processState == ProcessState::Finished) {
+    if (m_processState == ProcessState::Finished) {
         tft.fillRect(0, 200, tft.width(), tft.height() - 200, WHITE);
     } else {
         tft.fillScreen(WHITE);
     }
-    tft.drawLine(0, 200, tft.width() - 1, 200, BLACK);
-    tft.drawLine(106, 201, 106, tft.height() - 1, BLACK);
-    tft.drawLine(213, 201, 213, tft.height() - 1, BLACK);
-
-    if (processState == ProcessState::Ready) {
-        tft.setCursor(5, 213);
-        tft.setTextColor(BLACK);  tft.setTextSize(2);
-        tft.println(F("Settings"));
-        
-        tft.setCursor(238, 213);
-        tft.setTextColor(BLACK);  tft.setTextSize(2);
-        tft.println(F("About"));
-    }
-
-    tft.setCursor(128, 213);
-    tft.setTextColor(BLACK);  tft.setTextSize(2);
-    if (processState == ProcessState::Ready) {
-        Serial.println(F("Ready"));
-        tft.println(F("Start"));
-    }
-    else if (processState == ProcessState::Running) {
-        Serial.println(F("Running"));
-        tft.println(F("Stop"));
-    }
-    else {
-        Serial.println(F("Finished"));
-        tft.println(F("Reset"));
-    }
+    drawButtons(actualScreen);
 
     tft.drawRect(270, 16, 10, 2, BLUE);     // Label soll
     tft.setCursor(282, 13);
@@ -80,9 +87,9 @@ void Display::drawHomeScreen(ProcessState processState, Setpoint TemperatureSetp
     tft.setTextColor(RED);  tft.setTextSize(1);
     tft.println(F("Ist"));
 
-    maxTimeInChart = TemperatureSetpoints[5].time;
-    drawChartAxis(TemperatureSetpoints);
-    drawSollLine(BLUE, false, TemperatureSetpoints);
+    maxTimeInChart = m_setpoints.sp[5].time;
+    drawChartAxis();
+    drawSollLine(BLUE, false);
 }
 
 void Display::drawRemainingTime(uint16_t remainingTime) {
@@ -116,8 +123,8 @@ void Display::drawActualTemp(float actTemp, bool heater) {
     tft.println(actTemp);
 }
 
-void Display::drawSettingsScreen(void) {
-    actualScreen = settingsScreen;
+void Display::drawAboutInfoScreen(void) {
+    actualScreen = aboutInfoScreen;
 
     tft.fillScreen(WHITE);
 
@@ -153,102 +160,72 @@ void Display::drawTempPointValueScreen(uint16_t value) {
     tft.println(value);
 }
 
-void Display::drawTempInputScreen(bool isTempSelected, uint8_t selectedTempPoint, uint16_t &selectedTempPointValue, Setpoint TemperatureSetpoints[]) {
-    actualScreen = tempInputScreen;
+void Display::drawSettingsScreen(void) {
+    actualScreen = settingsScreen;
+
+    tft.fillScreen(WHITE);
+    drawButtons(actualScreen);
+    drawArrow(12, 220);
+    maxTimeInChart = m_setpoints.sp[5].time;
+    drawChartAxis();
+    drawSollLine(BLUE, true);
+}
+
+void Display::drawEditSetpointsScreen() {
+    actualScreen = editSetpointsScreen;
+
+    tft.fillScreen(WHITE);
+    drawButtons(actualScreen);
+    drawArrow(12, 220);
+    maxTimeInChart = m_setpoints.sp[5].time;
+    drawChartAxis();
+    drawSollLine(BLUE, true);
+}
+
+void Display::drawSetpointInputScreen(bool isTempSelected, uint8_t selectedTempPoint, uint16_t &selectedTempPointValue) {
+    actualScreen = setpointInputScreen;
 
     int counter = 1;
     tft.fillScreen(WHITE);
 
-    // draw grid
-    for (uint16_t i = 90; i < tft.height() - 1; i += 50) {
-        tft.drawLine(0, i, tft.width() - 1, i, BLACK);
-    }
-    for (uint16_t i = 160; i < tft.width() - 1; i += 80) {
-        tft.drawLine(i, 90, i, tft.height() - 1, BLACK);
-    }
-    tft.drawLine(80, 0, 80, tft.height() - 1, BLACK);
-    tft.drawLine(0, 45, 80, 45, BLACK);
-
-
-    // draw numbers in grid
-    tft.setTextColor(BLACK);  tft.setTextSize(3);
-    for (uint16_t j = 104; j < tft.height() - 1; j += 50) {
-        for (uint16_t i = 33; i < 240; i += 80) {
-            tft.setCursor(i, j);
-            tft.println(counter);
-            counter++;
-        }
-    }
-
-    tft.setCursor(257, 104);
-    tft.setTextColor(BLACK);  tft.setTextSize(3);
-    tft.println(F("Del"));
-
-    tft.setCursor(273, 154);
-    tft.setTextColor(BLACK);  tft.setTextSize(3);
-    tft.println(F("0"));
-
-    tft.setCursor(264, 204);
-    tft.setTextColor(BLACK);  tft.setTextSize(3);
-    tft.println(F("OK"));
-
     if (isTempSelected) {
         tft.fillRect(0, 0, 80, 45, GREEN);
-        selectedTempPointValue = TemperatureSetpoints[selectedTempPoint].temperature;
+        selectedTempPointValue = m_setpoints.sp[selectedTempPoint].temperature;
     }
     else {
         tft.fillRect(0, 46, 80, 44, GREEN);
-        selectedTempPointValue = TemperatureSetpoints[selectedTempPoint].time;
+        selectedTempPointValue = m_setpoints.sp[selectedTempPoint].time;
     }
 
-    tft.setCursor(5, 15);
-    tft.setTextColor(BLACK);  tft.setTextSize(3);
-    tft.println(F("Temp"));
-
-    tft.setCursor(5, 60);
-    tft.setTextColor(BLACK);  tft.setTextSize(3);
-    tft.println(F("Time"));
+    drawButtons(actualScreen);
 
     drawTempPointValueScreen(selectedTempPointValue);
 }
 
-void Display::drawSollTempScreen(Setpoint TemperatureSetpoints[]) {
-    actualScreen = sollTempScreen;
+void Display::drawLoadSetpointsScreen() {
+    actualScreen = loadSetpointsScreen;
 
     tft.fillScreen(WHITE);
-    tft.drawLine(0, 200, tft.width() - 1, 200, BLACK);
-
-    tft.drawLine(54, 201, 54, tft.height() - 1, BLACK);
-    tft.drawLine(107, 201, 107, tft.height() - 1, BLACK);
-    tft.drawLine(161, 201, 161, tft.height() - 1, BLACK);
-    tft.drawLine(214, 201, 214, tft.height() - 1, BLACK);
-    tft.drawLine(268, 201, 268, tft.height() - 1, BLACK);
-
-
-    tft.setCursor(70, 213);
-    tft.setTextColor(BLACK);  tft.setTextSize(2);
-    tft.println(F("P1"));
-
-    tft.setCursor(123, 213);
-    tft.setTextColor(BLACK);  tft.setTextSize(2);
-    tft.println(F("P2"));
-
-    tft.setCursor(177, 213);
-    tft.setTextColor(BLACK);  tft.setTextSize(2);
-    tft.println(F("P3"));
-
-    tft.setCursor(230, 213);
-    tft.setTextColor(BLACK);  tft.setTextSize(2);
-    tft.println(F("P4"));
-
-    tft.setCursor(284, 213);
-    tft.setTextColor(BLACK);  tft.setTextSize(2);
-    tft.println(F("P5"));
-
-    maxTimeInChart = TemperatureSetpoints[5].time;
-    drawChartAxis(TemperatureSetpoints);
-    drawSollLine(BLUE, true, TemperatureSetpoints);
+    drawButtons(actualScreen);
     drawArrow(12, 220);
+
+    ////////////////////////
+    tft.setCursor(70, 100);
+    tft.setTextColor(BLACK);  tft.setTextSize(3);
+    tft.println(F("LOAD"));
+}
+
+void Display::drawSaveSetpointsScreen() {
+    actualScreen = saveSetpointsScreen;
+
+    tft.fillScreen(WHITE);
+    drawButtons(actualScreen);
+    drawArrow(12, 220);
+
+    ////////////////////////
+    tft.setCursor(70, 100);
+    tft.setTextColor(BLACK);  tft.setTextSize(3);
+    tft.println(F("SAVE"));
 }
 
 void Display::drawErrorScreen(String message) {
@@ -262,15 +239,15 @@ Display::screen Display::getActualScreen() {
     return actualScreen;
 }
 
-void Display::drawSollLine(uint16_t color, boolean drawIndicators, Setpoint TemperatureSetpoints[]) {
+void Display::drawSollLine(uint16_t color, boolean drawIndicators) {
     static const uint8_t NUM_OF_SETPOINTS = 6;
     int16_t x1, x2, y1, y2;
 
     for (uint8_t i=0; i<(NUM_OF_SETPOINTS - 1); i++) {
-        const int16_t x1Coord = static_cast<int16_t>(map(TemperatureSetpoints[i].time, 0, maxTimeInChart, CHART_AREA_X1, CHART_AREA_X2));
-        const int16_t x2Coord = static_cast<int16_t>(map(TemperatureSetpoints[i + 1].time, 0, maxTimeInChart, CHART_AREA_X1, CHART_AREA_X2));
-        const int16_t y1Coord = static_cast<int16_t>(map(TemperatureSetpoints[i].temperature, 0, MAX_TEMPERATURE, CHART_AREA_Y1, CHART_AREA_Y2));
-        const int16_t y2Coord = static_cast<int16_t>(map(TemperatureSetpoints[i + 1].temperature, 0, MAX_TEMPERATURE, CHART_AREA_Y1, CHART_AREA_Y2));
+        const int16_t x1Coord = static_cast<int16_t>(map(m_setpoints.sp[i].time, 0, maxTimeInChart, CHART_AREA_X1, CHART_AREA_X2));
+        const int16_t x2Coord = static_cast<int16_t>(map(m_setpoints.sp[i + 1].time, 0, maxTimeInChart, CHART_AREA_X1, CHART_AREA_X2));
+        const int16_t y1Coord = static_cast<int16_t>(map(m_setpoints.sp[i].temperature, 0, MAX_TEMPERATURE, CHART_AREA_Y1, CHART_AREA_Y2));
+        const int16_t y2Coord = static_cast<int16_t>(map(m_setpoints.sp[i + 1].temperature, 0, MAX_TEMPERATURE, CHART_AREA_Y1, CHART_AREA_Y2));
         tft.drawLine(x1Coord, y1Coord, x2Coord, y2Coord, color);
 
         if (drawIndicators) {
@@ -282,7 +259,7 @@ void Display::drawSollLine(uint16_t color, boolean drawIndicators, Setpoint Temp
     }
 }
 
-void Display::drawChartAxis(Setpoint TemperatureSetpoints[]) {
+void Display::drawChartAxis() {
     tft.drawLine(CHART_AREA_X1, 20, CHART_AREA_X1, CHART_AREA_Y1, BLACK);       // vertical axis
     tft.drawLine(CHART_AREA_X1, 20, CHART_AREA_X1-2, 22, BLACK);       // Y arrow
     tft.drawLine(CHART_AREA_X1, 20, CHART_AREA_X1+2, 22, BLACK);       // Y arrow
@@ -342,5 +319,43 @@ void Display::drawChartAxis(Setpoint TemperatureSetpoints[]) {
 void Display::drawArrow(int16_t x, int16_t y) {
     tft.fillTriangle(x, y, x + 15, y + 10, x + 15, y - 10, BLACK);
     tft.fillRect(x + 15, y - 5, 15, 11, BLACK);
+}
+
+void Display::drawButtons(screen screenId) {
+    tft.setTextColor(BLACK);
+    tft.setTextSize(2);
+
+    for (uint16_t i=0; i < TouchButton::NUM_OF_TOUCH_BUTTONS; i++) {
+        TouchButton::TouchButtonElement actualTouchButton;
+        memcpy_P(&actualTouchButton, &TouchButton::TOUCH_BUTTONS[i], sizeof(actualTouchButton));
+
+        if (actualTouchButton.screen == screenId) {
+            tft.drawRect(actualTouchButton.x1, actualTouchButton.y1, actualTouchButton.x2 - actualTouchButton.x1 + 1, actualTouchButton.y2 - actualTouchButton.y1 + 1, BLACK);
+            String btnName = (char*)pgm_read_word(&(buttonText[actualTouchButton.buttonId]));
+            // handle special button text
+            if (actualTouchButton.buttonId == TouchButton::buttonStartStopReset) {
+                if (m_processState == ProcessState::Ready) {
+                    btnName = F("Start");
+                }
+                else if (m_processState == ProcessState::Running) {
+                    btnName = F("Stop");
+                }
+                else {
+                    btnName = F("Reset");
+                }
+            } else if ((actualTouchButton.buttonId == TouchButton::buttonSettings)
+                || (actualTouchButton.buttonId == TouchButton::buttonAboutInfo)) {
+                
+                if (m_processState != ProcessState::Ready) {
+                    btnName = F("");
+                }
+            }
+
+            const int16_t xCoord = (actualTouchButton.x1 + actualTouchButton.x2) / 2 - btnName.length() * 2U * 6U / 2U + 1;
+            const int16_t yCoord = (actualTouchButton.y1 + actualTouchButton.y2) / 2 - 7 + 1;
+            tft.setCursor(xCoord, yCoord);
+            tft.println(btnName);
+        }
+    }
 }
 
