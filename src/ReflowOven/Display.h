@@ -13,14 +13,22 @@ public:
     */
     enum screen {
         homeScreen,
-        sollTempScreen,
-        tempInputScreen,
         settingsScreen,
+        editSetpointsScreen,
+        setpointInputScreen,
+        loadSetpointsScreen,
+        saveSetpointsScreen,
+        aboutInfoScreen,
         noChange
     };
 
-    /** Constructor. */
-    Display();
+    /**
+    * Constructor.
+    * @param setpoints struct of setpoints
+    * @param processState the actual state
+    */
+    Display(Setpoints& setpoints, ProcessState& processState);
+
     /** Destructor. */
     ~Display();
 
@@ -31,10 +39,8 @@ public:
 
     /**
     * This function draws the home screen
-    * @param processState the actual state
-    * @param TemperatureSetpoints[] the array of setpoints.
     */
-    void drawHomeScreen(ProcessState processState, Setpoint TemperatureSetpoints[]);
+    void drawHomeScreen();
 
     /**
     * This function draws the time during preheat.
@@ -60,7 +66,7 @@ public:
     /**
     * This function draws the settings screen.
     */
-    void drawSettingsScreen(void);
+    void drawAboutInfoScreen(void);
 
     /**
     * Draws the actual temperatue value on top of the screen.
@@ -69,20 +75,32 @@ public:
     void drawTempPointValueScreen(uint16_t value);
 
     /**
+    * This function draws the settings screen.
+    */
+    void drawSettingsScreen(void);
+
+    /**
+    * This function draws the edit setpoints screen.
+    */
+    void drawEditSetpointsScreen();
+
+    /**
     * Draws the temperature input screen.
     * @param isTempSelected True if actual input selection is temperature.
     * @param selectedTempPoint selected setpoint index.
     * @param selectedTempPointValue the value of the selected setpoint.
-    * @param TemperatureSetpoints[] the array of setpoints.
     */
-    void drawTempInputScreen(bool isTempSelected, uint8_t selectedTempPoint, uint16_t &selectedTempPointValue, Setpoint TemperatureSetpoints[]);
+    void drawSetpointInputScreen(bool isTempSelected, uint8_t selectedTempPoint, uint16_t &selectedTempPointValue);
 
     /**
-    * This function draws the soll-temperature screen.
-    * @param TemperatureSetpoints[] the array of setpoints.
+    * Draws screen for loading setpoints from EEPROM.
     */
-    void drawSollTempScreen(Setpoint TemperatureSetpoints[]);
+    void drawLoadSetpointsScreen();
 
+    /**
+    * Draws screen for saving setpoints to EEPROM.
+    */
+    void drawSaveSetpointsScreen();
 
     /**
     * Draws an error screen.
@@ -101,15 +119,13 @@ private:
     * This function draws the soll-temperatur line in a existing chart.
     * @param color The color of the line.
     * @param drawIndicators if true, indicators are drawn.
-    * @param TemperatureSetpoints[] the array of setpoints.
     */
-    void drawSollLine(uint16_t color, boolean drawIndicators, Setpoint TemperatureSetpoints[]);
+    void drawSollLine(uint16_t color, boolean drawIndicators);
 
     /**
     * This function draw the axis of the chart in a existing screen.
-    * @param TemperatureSetpoints[] the array of setpoints.
     */
-    void drawChartAxis(Setpoint TemperatureSetpoints[]);
+    void drawChartAxis();
 
     /**
     * Draws an arrow at the given positions.
@@ -117,6 +133,13 @@ private:
     * @param y y-coordinate of the arrow to draw.
     */
     void drawArrow(int16_t x, int16_t y);
+
+    /**
+    * Draws an arrow at the given positions.
+    * @param x x-coordinate of the arrow to draw.
+    * @param y y-coordinate of the arrow to draw.
+    */
+    void drawButtons(screen screenId);
 
     // constants
     static const int16_t CHART_AREA_X1 = 25;
@@ -127,6 +150,8 @@ private:
     static const uint16_t MAX_TEMPERATURE = 300U;
 
     // members
+    Setpoints& m_setpoints;
+    ProcessState& m_processState;
     screen actualScreen;
     uint16_t lastChartTemperature;
     uint16_t maxTimeInChart;

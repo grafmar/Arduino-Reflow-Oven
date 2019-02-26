@@ -2,33 +2,42 @@
 #include "ReflowOven.h"
 
 const PROGMEM TouchButton::TouchButtonElement TouchButton::TOUCH_BUTTONS[TouchButton::NUM_OF_TOUCH_BUTTONS] = {
-    { Display::homeScreen,        0, 106, 200, 240, TouchButton::buttonSollTemp },
-    { Display::homeScreen,      106, 213, 200, 240, TouchButton::buttonStartStopReset },
-    { Display::homeScreen,      213, 320, 200, 240, TouchButton::buttonSettings },
+    { Display::homeScreen,             0, 106, 200, 240, TouchButton::buttonSettings },
+    { Display::homeScreen,           106, 213, 200, 240, TouchButton::buttonStartStopReset },
+    { Display::homeScreen,           213, 320, 200, 240, TouchButton::buttonAboutInfo },
     
-    { Display::sollTempScreen,    0,  54, 200, 240, TouchButton::buttonBack },
-    { Display::sollTempScreen,   54, 107, 200, 240, TouchButton::buttonP1 },
-    { Display::sollTempScreen,  107, 161, 200, 240, TouchButton::buttonP2 },
-    { Display::sollTempScreen,  161, 214, 200, 240, TouchButton::buttonP3 },
-    { Display::sollTempScreen,  214, 268, 200, 240, TouchButton::buttonP4 },
-    { Display::sollTempScreen,  268, 320, 200, 240, TouchButton::buttonP5 },
+    { Display::settingsScreen,         0,  54, 200, 240, TouchButton::buttonBack },
+    { Display::settingsScreen,        54, 142, 200, 240, TouchButton::buttonEdit },
+    { Display::settingsScreen,       142, 231, 200, 240, TouchButton::buttonLoad },
+    { Display::settingsScreen,       231, 320, 200, 240, TouchButton::buttonSave },
 
-    { Display::tempInputScreen,   0,  80,  90, 140, TouchButton::button1 },
-    { Display::tempInputScreen,  80, 160,  90, 140, TouchButton::button2 },
-    { Display::tempInputScreen, 160, 240,  90, 140, TouchButton::button3 },
-    { Display::tempInputScreen,   0,  80, 140, 190, TouchButton::button4 },
-    { Display::tempInputScreen,  80, 160, 140, 190, TouchButton::button5 },
-    { Display::tempInputScreen, 160, 240, 140, 190, TouchButton::button6 },
-    { Display::tempInputScreen,   0,  80, 190, 240, TouchButton::button7 },
-    { Display::tempInputScreen,  80, 160, 190, 240, TouchButton::button8 },
-    { Display::tempInputScreen, 160, 240, 190, 240, TouchButton::button9 },
-    { Display::tempInputScreen, 240, 320,  90, 140, TouchButton::buttonDel },
-    { Display::tempInputScreen, 240, 320, 140, 190, TouchButton::button0 },
-    { Display::tempInputScreen, 240, 320, 190, 240, TouchButton::buttonOK },
-    { Display::tempInputScreen,   0,  80,   0,  45, TouchButton::buttonTemp },
-    { Display::tempInputScreen,   0,  80,  45,  90, TouchButton::buttonTime },
+    { Display::editSetpointsScreen,    0,  54, 200, 240, TouchButton::buttonBackSettings },
+    { Display::editSetpointsScreen,   54, 107, 200, 240, TouchButton::buttonP1 },
+    { Display::editSetpointsScreen,  107, 161, 200, 240, TouchButton::buttonP2 },
+    { Display::editSetpointsScreen,  161, 214, 200, 240, TouchButton::buttonP3 },
+    { Display::editSetpointsScreen,  214, 268, 200, 240, TouchButton::buttonP4 },
+    { Display::editSetpointsScreen,  268, 320, 200, 240, TouchButton::buttonP5 },
+
+    { Display::loadSetpointsScreen,    0,  54, 200, 240, TouchButton::buttonBackSettings },
+
+    { Display::saveSetpointsScreen,    0,  54, 200, 240, TouchButton::buttonBackSettings },
+
+    { Display::setpointInputScreen,   0,  80,  90, 140, TouchButton::button1 },
+    { Display::setpointInputScreen,  80, 160,  90, 140, TouchButton::button2 },
+    { Display::setpointInputScreen, 160, 240,  90, 140, TouchButton::button3 },
+    { Display::setpointInputScreen,   0,  80, 140, 190, TouchButton::button4 },
+    { Display::setpointInputScreen,  80, 160, 140, 190, TouchButton::button5 },
+    { Display::setpointInputScreen, 160, 240, 140, 190, TouchButton::button6 },
+    { Display::setpointInputScreen,   0,  80, 190, 240, TouchButton::button7 },
+    { Display::setpointInputScreen,  80, 160, 190, 240, TouchButton::button8 },
+    { Display::setpointInputScreen, 160, 240, 190, 240, TouchButton::button9 },
+    { Display::setpointInputScreen, 240, 320,  90, 140, TouchButton::buttonDel },
+    { Display::setpointInputScreen, 240, 320, 140, 190, TouchButton::button0 },
+    { Display::setpointInputScreen, 240, 320, 190, 240, TouchButton::buttonOK },
+    { Display::setpointInputScreen,   0,  80,   0,  45, TouchButton::buttonTemp },
+    { Display::setpointInputScreen,   0,  80,  45,  90, TouchButton::buttonTime },
     
-    { Display::settingsScreen,    0,  54, 200, 240, TouchButton::buttonBack}
+    { Display::aboutInfoScreen,    0,  54, 200, 240, TouchButton::buttonBack}
 };
 
 TouchButton::TouchButton() :
