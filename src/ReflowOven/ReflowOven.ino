@@ -50,7 +50,7 @@ void shiftNeightbourSetpoints(uint8_t setpointIndex);
 void setup(void) {
     EepromHandler::loadSetpointSet(0, setpoints);   // loads hard
     if (!EepromHandler::isSetpointSetValid(0)) {
-        EepromHandler::loadSetpointSet(0, setpoints);
+        EepromHandler::saveSetpointSet(0, setpoints);
     }
 
     // initialize serial communication
@@ -171,7 +171,9 @@ void loop(void) {
     TouchButton::ButtonId touchedButton = touchbutton.getTouchedButton(display.getActualScreen());
     evaluateButton(touchedButton);
 
-    while (touchbutton.isTouched()) {}
+    // check if touched (twice)
+    while (touchbutton.isTouched() || touchbutton.isTouched()) {}
+
     delay(50);
 }
 
