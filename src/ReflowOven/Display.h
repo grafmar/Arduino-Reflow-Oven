@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include <string.h>
 #include "ProcessState.h"
-#include "Setpoint.h"
+#include "Setpoints.h"
 
 
 class Display {
@@ -18,6 +18,7 @@ public:
         setpointInputScreen,
         loadSetpointsScreen,
         saveSetpointsScreen,
+        enterNameScreen,
         aboutInfoScreen,
         noChange
     };
@@ -101,6 +102,18 @@ public:
     * Draws screen for saving setpoints to EEPROM.
     */
     void drawSaveSetpointsScreen();
+
+    /**
+    * Draws screen for entering the setpoint-set name to store into EEPROM.
+    * @param name the name to display first
+    */
+    void drawEnterNameScreen(String name);
+
+    /**
+    * Update the name on the enterNameScreen.
+    * @param name the name to display first
+    */
+    void updateNameValue(String name);
 
     /**
     * Draws an error screen.

@@ -1,4 +1,5 @@
 #include "Display.h"
+#include "EepromHandler.h"
 #include "ReflowOven.h"
 #include "TouchButton.h"
 
@@ -8,34 +9,41 @@
 #define yCountDivisionText 6
 
 const char* const buttonText[] PROGMEM = {
-    ("Settings"),  // buttonSettings,
-    ("About"),     // buttonAboutInfo,
-    (""),          // buttonBack,
-    ("Edit"),      // buttonEdit,
-    ("Load"),      // buttonLoad,
-    ("Save"),      // buttonSave,
-    (""),          // buttonBackSettings,
-    ("P1"),        // buttonP1,
-    ("P2"),        // buttonP2,
-    ("P3"),        // buttonP3,
-    ("P4"),        // buttonP4,
-    ("P5"),        // buttonP5,
-    ("0"),         // button0,
-    ("1"),         // button1,
-    ("2"),         // button2,
-    ("3"),         // button3,
-    ("4"),         // button4,
-    ("5"),         // button5,
-    ("6"),         // button6,
-    ("7"),         // button7,
-    ("8"),         // button8,
-    ("9"),         // button9,
-    ("Del"),       // buttonDel,
-    ("OK"),        // buttonOK,
-    (""),          // buttonStartStopReset,
-    ("Time"),      // buttonTime,
-    ("Temp"),      // buttonTemp,
-    (""),          // noButton
+    ("Settings"),   // buttonSettings,
+    ("About"),      // buttonAboutInfo,
+    (""),           // buttonBack,
+    ("Edit"),       // buttonEdit,
+    ("Load"),       // buttonLoad,
+    ("Save"),       // buttonSave,
+    (""),           // buttonBackSettings,
+    ("P1"),         // buttonP1,
+    ("P2"),         // buttonP2,
+    ("P3"),         // buttonP3,
+    ("P4"),         // buttonP4,
+    ("P5"),         // buttonP5,
+    ("0"),          // button0,
+    ("1"),          // button1,
+    ("2"),          // button2,
+    ("3"),          // button3,
+    ("4"),          // button4,
+    ("5"),          // button5,
+    ("6"),          // button6,
+    ("7"),          // button7,
+    ("8"),          // button8,
+    ("9"),          // button9,
+    ("Del"),        // buttonDel,
+    ("OK"),         // buttonOK,
+    (""),           // buttonStartStopReset,
+    ("Time"),       // buttonTime,
+    ("Temp"),       // buttonTemp,
+    ("Default (Startup)"),    // buttonDefault,
+    (""),           // buttonM1,
+    (""),           // buttonM2,
+    (""),           // buttonM3,
+    (""),           // buttonM4,
+    (""),           // buttonM5,
+    ("Save"),       // buttonSaveAs,
+    ("")            // noButton
 };
 
 // define the tft-object with the right library
@@ -209,23 +217,52 @@ void Display::drawLoadSetpointsScreen() {
     drawButtons(actualScreen);
     drawArrow(12, 220);
 
-    ////////////////////////
-    tft.setCursor(70, 100);
-    tft.setTextColor(BLACK);  tft.setTextSize(3);
-    tft.println(F("LOAD"));
+    tft.setTextColor(BLACK);  tft.setTextSize(2);
+    for (uint8_t i=0; i < 5; i++) {
+        tft.setCursor(5, 40*i + 14);
+        String buttonText = String("M") + String(i+1) + ": " + EepromHandler::getSetpointSetName(i+1);
+        tft.print(buttonText);
+    }
 }
 
 void Display::drawSaveSetpointsScreen() {
+    drawLoadSetpointsScreen();
     actualScreen = saveSetpointsScreen;
+}
+
+void Display::drawEnterNameScreen(String name) {
+    actualScreen = enterNameScreen;
 
     tft.fillScreen(WHITE);
     drawButtons(actualScreen);
     drawArrow(12, 220);
 
-    ////////////////////////
-    tft.setCursor(70, 100);
-    tft.setTextColor(BLACK);  tft.setTextSize(3);
-    tft.println(F("SAVE"));
+    tft.setCursor(5, 5);
+    tft.setTextColor(BLACK);  tft.setTextSize(2);
+    tft.println(F("Name:"));
+
+    tft.setTextColor(BLACK);  tft.setTextSize(2);
+    tft.setCursor(10, 40);
+    tft.println(F("A  B  C  D  E  F  G  H  I"));
+    tft.setCursor(10, 70);
+    tft.println(F("J  K  L  M  N  O  P  Q  R"));
+    tft.setCursor(10, 100);
+    tft.println(F("S  T  U  V  W  X  Y  Z  0"));
+    tft.setCursor(10, 130);
+    tft.println(F("1  2  3  4  5  6  7  8  9"));
+    tft.setCursor(10, 160);
+    tft.println(F(",  .  _   Space   Del"));
+
+    updateNameValue(name);
+}
+
+void Display::updateNameValue(String name) {
+    tft.fillRect(65, 0, 320-65, 25, WHITE);
+    tft.setCursor(65, 5);
+    tft.setTextColor(BLACK);  tft.setTextSize(2);
+    tft.println(name);
+    const int16_t xpos = 65 + name.length() * 2 * 6;
+    tft.drawLine(xpos, 3, xpos, 23, BLACK);
 }
 
 void Display::drawErrorScreen(String message) {

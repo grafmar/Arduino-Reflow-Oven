@@ -108,8 +108,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Display.h" />
+    <ClInclude Include="EepromHandler.h" />
     <ClInclude Include="ProcessState.h" />
-    <ClInclude Include="Setpoint.h" />
+    <ClInclude Include="Setpoints.h" />
     <ClInclude Include="ReflowOven.h">
       <FileType>CppCode</FileType>
     </ClInclude>
@@ -124,6 +125,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Display.cpp" />
+    <ClCompile Include="EepromHandler.cpp" />
     <ClCompile Include="SWTFT.cpp" />
     <ClCompile Include="TouchButton.cpp" />
   </ItemGroup>

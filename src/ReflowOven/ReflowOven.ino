@@ -9,16 +9,15 @@
 
 #include "ReflowOven.h"
 #include "Display.h"
+#include "EepromHandler.h"
 #include "ProcessState.h"
-#include "Setpoint.h"
+#include "Setpoints.h"
 #include "TouchButton.h"
 
 #include <Adafruit_GFX.h>    // Core graphics library
 #include <TouchScreen.h>
 #include <EEPROM.h>
 #include <max6675.h>
-
-
 
 
 // generate objects
@@ -42,19 +41,17 @@ boolean heater = false;
 
 uint16_t timeCounter = 0;
 uint16_t preHeatTime = 12;
-
+uint8_t saveIndex = 0;
+String saveName = "";
 
 void evaluateButton(TouchButton::ButtonId touchedButton);
 void shiftNeightbourSetpoints(uint8_t setpointIndex);
 
 void setup(void) {
-    // define default temperature setpoints
-    setpoints.sp[0] = { 0, 25 };
-    setpoints.sp[1] = { 30,100 };
-    setpoints.sp[2] = { 120,150 };
-    setpoints.sp[3] = { 150,183 };
-    setpoints.sp[4] = { 210,235 };
-    setpoints.sp[5] = { 240,183 };
+    EepromHandler::loadSetpointSet(0, setpoints);   // loads hard
+    if (!EepromHandler::isSetpointSetValid(0)) {
+        EepromHandler::loadSetpointSet(0, setpoints);
+    }
 
     // initialize serial communication
     Serial.begin(115200);
@@ -73,13 +70,17 @@ void setup(void) {
     display.drawHomeScreen();
     delay(1000);
 
-    //for(i = 0; i < 12; i++){
-    // Serial.println(EEPROM.read(i));
+    // EEPROM readout
+    //for (uint16_t address=0; address < EEPROM.length(); address++) {
+    //    if (address % 16 == 0) {
+    //        Serial.println();
+    //        char buffer[10];
+    //        sprintf(buffer, "%04d:", address);
+    //        Serial.print(buffer);
+    //    }
+    //    Serial.print(" ");
+    //    Serial.print(EEPROM.read(address), HEX);
     //}
-    // for (i = 0; i < 6; i++) {
-    // EEPROM.write(2 * i, setpoints.sp[i].time);
-    // EEPROM.write(2 * i + 1, setpoints.sp[i].temperature);
-    // }
 
     lastMeasurementMS = millis();
 }
@@ -148,14 +149,29 @@ void loop(void) {
             }
         }
 
-        if ((display.getActualScreen() != Display::setpointInputScreen) && (display.getActualScreen() != Display::aboutInfoScreen)) {
+        if (display.getActualScreen() == Display::homeScreen) {
             display.drawActualTemp(temp, heater);
+        }
+    }
+    
+    if (display.getActualScreen() == Display::enterNameScreen) {
+        char key = touchbutton.getTouchedKey();
+        if (key != 0) {
+            if (key == 127) {
+                saveName = saveName.substring(0, saveName.length() - 1);
+            } else {
+                if (saveName.length() < 21) {
+                    saveName += key;
+                }
+            }
+            display.updateNameValue(saveName);
         }
     }
 
     TouchButton::ButtonId touchedButton = touchbutton.getTouchedButton(display.getActualScreen());
     evaluateButton(touchedButton);
 
+    while (touchbutton.isTouched()) {}
     delay(50);
 }
 
@@ -286,6 +302,34 @@ void evaluateButton(TouchButton::ButtonId touchedButton) {
                 display.drawSetpointInputScreen(actualInputSelection == TouchButton::buttonTemp, selectedTempPoint, selectedTempPointValue);
                 break;
 
+            case TouchButton::buttonDefault:
+            case TouchButton::buttonM1:
+            case TouchButton::buttonM2:
+            case TouchButton::buttonM3:
+            case TouchButton::buttonM4:
+            case TouchButton::buttonM5:
+            {
+                uint8_t index = static_cast<uint8_t>(touchedButton - TouchButton::buttonDefault);
+                if (display.getActualScreen() == Display::loadSetpointsScreen) {
+                    if (EepromHandler::isSetpointSetValid(index)) {
+                        EepromHandler::loadSetpointSet(index, setpoints);
+                        display.drawSettingsScreen();
+                    }
+                } else {
+                    saveIndex = index;
+                    saveName = setpoints.name;
+                    display.drawEnterNameScreen(saveName);
+                }
+                break;
+            }
+
+            case TouchButton::buttonSaveAs:
+                memcpy(setpoints.name, saveName.c_str(), saveName.length());
+                EepromHandler::saveSetpointSet(saveIndex, setpoints);
+                display.drawSettingsScreen();
+                break;
+
+            case TouchButton::noButton:
             default:
                 break;
         }

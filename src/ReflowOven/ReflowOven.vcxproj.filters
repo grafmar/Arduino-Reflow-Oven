@@ -33,13 +33,16 @@
     <ClInclude Include="Display.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Setpoint.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="TouchButton.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ProcessState.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Setpoints.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="EepromHandler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -51,6 +54,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="TouchButton.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="EepromHandler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
