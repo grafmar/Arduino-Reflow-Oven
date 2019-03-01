@@ -35,6 +35,8 @@ The hardware consists of:
 * [Opto-SSR S202S02 / S202SE2](https://www.aliexpress.com/item/S202S02/32364561514.html)
 * [MAX6675 thermocouple module with thermocouple sensor](https://www.aliexpress.com/item/2pcs-lot-MAX6675-K-type-Thermocouple-Temperature-Sensor-Temperature-0-800-Degrees-Module-Free-Shipping-Dropshipping/1843169664.html)
 
+<img src="Documentation/ReflowOven_Steckplatine.png" alt="Reflow Oven Schematic" width="50%"/>
+
 ## Housing / Enclosure
 The housing for the Arduino Uno and the TFT-Touch-Screen is printed using a 3D-Printer and mounted with a
 piece of aluminium to the oven.
