@@ -33,6 +33,13 @@ public:
         buttonStartStopReset,
         buttonTime,
         buttonTemp,
+        buttonDefault,
+        buttonM1,
+        buttonM2,
+        buttonM3,
+        buttonM4,
+        buttonM5,
+        buttonSaveAs,
         noButton
     };
 
@@ -47,7 +54,7 @@ public:
 //        uint16_t buttonId;
     };
 
-    static const uint16_t NUM_OF_TOUCH_BUTTONS = 30;
+    static const uint16_t NUM_OF_TOUCH_BUTTONS = 44;
     static const PROGMEM TouchButtonElement TOUCH_BUTTONS[NUM_OF_TOUCH_BUTTONS];
 
     TouchButton();
@@ -59,6 +66,18 @@ public:
     * @return the touched button. 'noButton' is returned if no button is pressed.
     */
     TouchButton::ButtonId getTouchedButton(Display::screen currentScreen);
+
+    /**
+    * Evaluates the touched key of the display keyboard.
+    * @return the touched key or 0 if no key is pressed.
+    */
+    char getTouchedKey();
+
+    /**
+    * Checks if is touched.
+    * @return true if touched.
+    */
+    bool isTouched();
 
 private:
 
