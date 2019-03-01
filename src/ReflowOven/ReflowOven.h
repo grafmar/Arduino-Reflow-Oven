@@ -6,8 +6,8 @@
 
 // ******************************
 // Define the hardware: Original(ST7781 TFT) / my setup (SPFD5408 TFT)
-//#define USE_ST7781
-#define USE_SPFD5408
+#define USE_ST7781
+//#define USE_SPFD5408
 
 
 #ifdef USE_ST7781
