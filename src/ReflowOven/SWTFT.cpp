@@ -688,8 +688,6 @@ if((x < 0) || (y < 0) || (x >= _width) || (y >= _height)) return;
     writeRegister16(0x0020, x);
     writeRegister16(0x0021, y);
     writeA16B3(0x0022, r , g, b);
-	
-
   
   CS_IDLE;
 }

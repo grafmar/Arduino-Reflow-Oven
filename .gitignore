@@ -30,3 +30,6 @@
 *.exe
 *.out
 *.app
+/src/ReflowOven/__vm
+/src/ReflowOven/.vs/
+/src/ReflowOven/Release
