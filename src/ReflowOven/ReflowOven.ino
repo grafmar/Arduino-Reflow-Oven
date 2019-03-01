@@ -328,7 +328,8 @@ void evaluateButton(TouchButton::ButtonId touchedButton) {
             }
 
             case TouchButton::buttonSaveAs:
-                memcpy(setpoints.name, saveName.c_str(), saveName.length());
+                memset(setpoints.name, 0U, setpoints.NAME_LENGTH);            // clear name string in setpoints
+                memcpy(setpoints.name, saveName.c_str(), saveName.length());    // copy string to name in setpoints
                 EepromHandler::saveSetpointSet(saveIndex, setpoints);
                 display.drawSettingsScreen();
                 break;
