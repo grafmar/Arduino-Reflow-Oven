@@ -171,8 +171,10 @@ void loop(void) {
     TouchButton::ButtonId touchedButton = touchbutton.getTouchedButton(display.getActualScreen());
     evaluateButton(touchedButton);
 
-    // check if touched (twice)
-    while (touchbutton.isTouched() || touchbutton.isTouched()) {}
+    // check if still touched
+    while (touchbutton.isTouched()) {
+        delay(100);
+    }
 
     delay(50);
 }
