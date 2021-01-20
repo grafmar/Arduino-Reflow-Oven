@@ -19,7 +19,7 @@ also guarantee good solder joints.
 
 ## Requirements
 * [Arduino IDE](https://www.arduino.cc/en/main/software)
-* Adafruit_GFX library
+* Adafruit_GFX library (V1.5.0, newer libraries generate error according textsize)
 * SWTFT Library
 * TouchScreen Library
 * MAX6675 Library
