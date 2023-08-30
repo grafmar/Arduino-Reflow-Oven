@@ -21,7 +21,8 @@ also guarantee good solder joints.
 * [Arduino IDE](https://www.arduino.cc/en/main/software)
 * Adafruit_GFX library (V1.5.0, newer libraries generate error according textsize)
 * SWTFT Library
-* TouchScreen Library
+* TouchScreen Library (included in the source code for, used for ST7781 driver)
+* TftSpfd5408 Library (if SPFD5408 is used, install in Arduino IDE)
 * MAX6675 Library
 * TimerOne Library
 * [Visual Studio](https://visualstudio.microsoft.com/) to have a comfortable IDE
