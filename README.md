@@ -31,11 +31,15 @@ also guarantee good solder joints.
 The hardware consists of:
 * [Pizza oven Clatronic MPO 3520](https://www.clatronic.de/products/de/Elektro-Kleingeraete/Kleine-Backoefen/MPO-3520-Multi-Pizza-Ofen.html)
 * [Arduino Uno](https://store.arduino.cc/arduino-uno-rev3)
-* [2.4" 240x320 TFT display shield with integrated touch](https://www.aliexpress.com/item/ShengYang-1PCS-LCD-module-TFT-2-4-inch-TFT-LCD-screen-for-Arduino-UNO-R3-Board/32924291239.html)
+* 2.4" 240x320 TFT display shield with integrated touch ([search for "2.4 TFT"](https://www.aliexpress.com/w/wholesale-2.4-TFT.html) and check for ST7781 or SPFD5408 driver chip)
 * [Opto-SSR S202S02 / S202SE2](https://www.aliexpress.com/item/S202S02/32364561514.html)
 * [MAX6675 thermocouple module with thermocouple sensor](https://www.aliexpress.com/item/2pcs-lot-MAX6675-K-type-Thermocouple-Temperature-Sensor-Temperature-0-800-Degrees-Module-Free-Shipping-Dropshipping/1843169664.html)
 
 <img src="Documentation/ReflowOven_Steckplatine.png" alt="Reflow Oven Schematic" width="50%"/>
+
+## Software
+Depending on the display used you have to uncomment the right definition (`USE_ST7781` or `USE_SPFD5408`) in the file `ReflowOven.h`
+or extend the code in `Display.cpp` to use the right driver class for the `tft` object.
 
 ## Housing / Enclosure
 The housing for the Arduino Uno and the TFT-Touch-Screen is printed using a 3D-Printer and mounted with a
